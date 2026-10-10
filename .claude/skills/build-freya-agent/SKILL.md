@@ -23,6 +23,9 @@ Read `reference/patterns.md` (in this folder's parent: `../../../reference/patte
 
 The prompt gives a Unix deadline. Run `date +%s` before each long step. Keep 4 minutes at the end for the final save
 and the export. When the time is short, stop testing and save the best workflow that you have.
+Without practice customers, do not finish early: use the time for the review (step 7b), for local runs of every
+code body with each kind of input, and for chat checks of the opening, the identity step and the early exits. Finish
+when the review is complete and at most 6 minutes are left.
 
 ## Steps
 
@@ -57,6 +60,12 @@ and the export. When the time is short, stop testing and save the best workflow 
 
 7. **Talk to it.** `python lib/chat.py <workflow_id> --case <a practice case id> "<user turn>" ...` when practice
    customers exist, else `--vars '<call variables>'`. Check the first line, the identity step and one route.
+
+7b. **Review.** Go through `reference/checklist.md` item by item against `make.py`, and write
+   `work/<slot>/review.md` (one line for each item: OK with the place, FIXED with what, or N/A with why). Fix each
+   item that has no place, then check, save and talk to it again. Each item comes from a failure that a test showed.
+   With practice customers, do the review before the first test. Without practice customers, the review is the
+   test: do it in full, then do it once more on the changed parts.
 
 8. **Test, when the prompt says that practice customers exist.** Save first, then:
    `python lib/test.py <slot> <the options from the prompt> --out work/<slot>/run<N>.json` (a new N for each test).

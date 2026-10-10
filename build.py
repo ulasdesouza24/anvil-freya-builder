@@ -30,7 +30,7 @@ sys.path.insert(0, str(KIT))
 PRACTICE = {
     "A": "run them with `--brief A`",
     "B": "run them with `--brief B` (the customers of Brief A expect the rules of Brief A alone, so they do not apply)",
-    "none": "none exist for this brief: do not run lib/test.py or kit/tools/run_cases.py",
+    "none": "none exist for this brief: do not run lib/test.py or kit/tools/run_cases.py. The review of step 7b is your test: do it in full, and use the time that is left for it",
 }
 
 
