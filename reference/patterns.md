@@ -32,6 +32,21 @@ route that code can check:
 
 Merge or split stages when the brief needs it. A stage with strict rules of its own gets its own node.
 
+## How customers talk
+
+The scored customers talk like people: they give a number in two parts, correct themselves, say amounts and dates in
+words, ask back, and talk about other things. Write these rules into the prompts of every node that collects a value:
+
+- A partial value: keep the part that the customer gave and ask only for the missing part ("And the year?"). Do not
+  ask for the whole value again: a customer who talks in pieces repeats the same piece.
+- A number said over two turns ("five..." then "forty") is one number (540). A reply that ends in "..." or stops in
+  the middle is not finished: wait for the rest or ask for it. Never act on a part of a number.
+- A self-correction ("the 21st, sorry, the 20th") means the corrected value.
+- A cut-off or unclear reply is not a refusal and not a confirmation. A refusal counts only when the customer says it
+  clearly. Ask once more.
+- When the brief says that the agent proposes the values (an amount, a date), the agent never asks the customer for
+  them. When the customer accepts a date without an amount, the amount is the one of the current offer.
+
 ## Dates and numbers: code, not the model
 
 - The model gets dates wrong: weekends, holidays, "the n-th business day", "next Friday" said on a Friday. Compute
