@@ -65,7 +65,8 @@ and the export. When the time is short, stop testing and save the best workflow 
    each tested version. At the end the builder publishes the best tested version, not the last one, so a late change
    that makes the agent worse does no harm. Do not start a large change in the last 8 minutes: it cannot be tested.
    A platform outage looks like this: every customer fails with no tool call, the median agent turn is 0 s, or chat
-   gives 503. Then do not change the workflow. Run `python lib/platform_check.py <workflow_id>` every 2 minutes (not
+   gives 503, or every tool call fails. Then do not change the workflow. Run
+   `python lib/platform_check.py <workflow_id> <tool API file>` every 2 minutes (not
    more often) until it says UP, then test again. If the platform stays down, save the best version and stop.
    Read every FAIL line, then `python lib/analyze_call.py --run work/<slot>/run1.json` for the events of the failed
    calls. Find the cause in the workflow (a route that did not fire, a missing rule, a wrong number), fix it in
