@@ -24,11 +24,12 @@ KIT = pathlib.Path(os.environ.get("KIT", HERE / "kit")).resolve()
 sys.path.insert(0, str(KIT))
 
 
-# What the builder may test on. A later brief builds on the earlier ones, so a build of Brief B is also tested on the
-# single-product customers of Brief A: the scored customers have one to three products.
+# What the builder may test on. The expected records of a practice customer follow the rules of its own brief: Brief A
+# never adds a note, and Brief B adds one for each product without a promise. So a Brief B build tests only on the
+# customers of Brief B.
 PRACTICE = {
     "A": "run them with `--brief A`",
-    "B": "run all of them (no --brief option): the customers of Brief A must pass too, because Brief B builds on it",
+    "B": "run them with `--brief B` (the customers of Brief A expect the rules of Brief A alone, so they do not apply)",
     "none": "none exist for this brief: do not run kit/tools/run_cases.py",
 }
 
