@@ -37,6 +37,9 @@ Merge or split stages when the brief needs it. A stage with strict rules of its 
 The scored customers talk like people: they give a number in two parts, correct themselves, say amounts and dates in
 words, ask back, and talk about other things. Write these rules into the prompts of every node that collects a value:
 
+- Never call a check tool (identity, verification) with a partial value. A wrong-looking answer costs the customer
+  one of the allowed tries. Call it only when the value is complete in the form that the tool API describes (for
+  example all four digits, a full date with the year). Write this into the tool description and the node prompt.
 - A partial value: keep the part that the customer gave and ask only for the missing part ("And the year?"). Do not
   ask for the whole value again: a customer who talks in pieces repeats the same piece.
 - A number said over two turns ("five..." then "forty") is one number (540). A reply that ends in "..." or stops in
@@ -53,6 +56,18 @@ words, ask back, and talk about other things. Write these rules into the prompts
   them in code from `now` and give the model a lookup table: for each day of the coming weeks, the date, the weekday,
   and whether it is allowed as a promise date (and why not: weekend, holiday, after the deadline, before today), and
   which day to offer in its place.
+- A lookup table is not enough: in tests the model read the wrong row and offered a later day than the next
+  business day. Check a date that the customer names with code, every time:
+  1. In the negotiation node, extract it: `{"name": "named_date", "type": "date", "min_confidence": 0.6}`.
+  2. A transition (before the self-transition) goes to a code node when `named_date` is set and differs from
+     `checked_date`. The code node reads `named_date` and the item's rules (computed earlier), and writes
+     `checked_date` (the same value) and `date_verdict`: one sentence such as "2026-10-26 is a bank holiday: offer
+     Tuesday 27 October 2026 instead" or "2026-10-23 is allowed: read it back". Its last transition goes back to the
+     negotiation node (`always`).
+  3. The negotiation prompt shows `{{date_verdict}}` and says: "The DATE CHECK line is the only source of truth for a
+     date that the customer named. Offer exactly the date that it gives." On re-entry the node must not repeat its
+     opening line (`on_enter_first_entry_only`, or an `on_enter` prompt that continues the conversation).
+  Test the code body locally with each kind of date: a weekend, a holiday, after the deadline, before today, allowed.
 - Give each relative phrase that the brief defines its date in the table ("this Friday", "next Friday", "end of the
   week", the last business day of this week and of next week). Use the brief's own definition of each phrase.
 - Amounts: write them as speech in code (`money(420)` gives "420 dollars"). The model said "dollars365" when it got
