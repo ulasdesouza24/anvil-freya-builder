@@ -87,6 +87,7 @@ def normalize_plan(props):
 
 
 HOOK = r'''
+import json
 try:
     if isinstance(result, dict):
         result.pop("header", None)
@@ -107,6 +108,17 @@ try:
                 if (want == "" and v not in (None, "", [], {})) or (want != "" and str(v).lower() == want.lower()):
                     lines.append(text)
             d["what_to_do_next"] = " ".join(lines) or guide.get("ok") or "The action worked. Tell the customer the result in one short sentence, then continue."
+        # Code steps cannot read the result keys of the engine, and a response_mapping of a list sets nothing (seen on
+        # the platform). The hook writes each result field as a variable: <tool>_result__<field>, lists as JSON text.
+        try:
+            for k, v in d.items():
+                if k == "what_to_do_next":
+                    continue
+                vars["__TOOL___result__" + str(k)] = json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+                if isinstance(v, list):
+                    vars["__TOOL___result__" + str(k) + "_count"] = str(len(v))
+        except Exception:
+            pass
 except Exception:
     pass
 '''
@@ -148,7 +160,7 @@ def tool_for(path, op, server, guide):
                 },
             },
         },
-        "post_process_code": HOOK.replace("__GUIDE__", repr({"failed": g.get("failed", ""), "ok": g.get("ok", ""), "when": [tuple(x) for x in g.get("when", [])]})).strip() + "\n",
+        "post_process_code": HOOK.replace("__TOOL__", name).replace("__GUIDE__", repr({"failed": g.get("failed", ""), "ok": g.get("ok", ""), "when": [tuple(x) for x in g.get("when", [])]})).strip() + "\n",
     }
     # Spoken values (amounts and dates in words, digits as words) become the form of the API before the call.
     plan = {k: v for k, v in {**normalize_plan(props), **g.get("normalize", {})}.items() if v and v != "none"}

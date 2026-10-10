@@ -115,6 +115,17 @@ words, ask back, and talk about other things. Write these rules into the prompts
 - Say what to do in the same message: "thank the customer, say goodbye, and in the same message call the close tool".
   A model that waits for the next user turn after a result can lose the turn.
 
+## Tool results in code steps
+
+- A code step does not see the result keys that the engine writes (`<tool>_response.data.*`), and a
+  `response_mapping` of a list sets nothing. Both were seen on the platform: a facts step found no products.
+- The result hook of each generated tool writes every result field into a variable that code steps and prompts can
+  read: `<tool>_result__<field>` (for example `get_account_result__products`). A list or an object is JSON text: read
+  it with `get_list(vars, "get_account_result__products")` or `as_list(...)`. A list also gets
+  `<tool>_result__<field>_count`.
+- A tool in the `pre_actions` of an `api_request` node runs the same hooks.
+- Test the code step locally with these variables, shaped as JSON text, before you save.
+
 ## Routes
 
 - Route on tool results and extracted enums with `equals`, `greater_than`, `is_set`. Test booleans as both "true"
