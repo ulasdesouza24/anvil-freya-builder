@@ -173,6 +173,19 @@ def finish(args, trace):
     if not ids:
         trace.line("error", f"no workflow was saved for the slot {args.slot}")
         return 1
+    # The result is the best tested version, not the last one (lib/snapshot.py): a late change can make it worse.
+    sys.path.insert(0, str(HERE / "lib"))
+    import snapshot
+
+    best = snapshot.best(args.slot)
+    current = HERE / "work" / args.slot / "workflow.json"
+    if best:
+        trace.line("best", f"version {best['version']}: plain {[(r['passed'], r['total']) for r in best['plain']]} style {[(r['passed'], r['total']) for r in best['style']]}")
+        best_text = (HERE / best["file"]).read_text()
+        if not current.exists() or current.read_text() != best_text:
+            freya.save_workflow(args.slot, json.loads(best_text), state_file=str(HERE / ".freya-agents.json"))
+            current.write_text(best_text)
+            trace.line("restore", f"the last version was worse or not tested: saved and published version {best['version']} again")
     out = HERE / "submission" / f"{args.slot}.workflow.json"
     out.parent.mkdir(exist_ok=True)
     freya.export_workflow(ids["workflow_id"], str(out))

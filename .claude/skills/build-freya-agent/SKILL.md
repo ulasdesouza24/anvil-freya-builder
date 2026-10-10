@@ -61,6 +61,9 @@ and the export. When the time is short, stop testing and save the best workflow 
 8. **Test, when the prompt says that practice customers exist.** In the foreground:
    `python kit/tools/run_cases.py <agent_id> <the options from the prompt> --out work/<slot>/run1.json`. A run takes 3
    to 11 minutes.
+   After each test, record it: `python lib/snapshot.py record <slot> work/<slot>/run1.json [--style <style>]`. This keeps
+   each tested version. At the end the builder publishes the best tested version, not the last one, so a late change
+   that makes the agent worse does no harm. Do not start a large change in the last 8 minutes: it cannot be tested.
    Read every FAIL line, then `python lib/analyze_call.py --run work/<slot>/run1.json` for the events of the failed
    calls. Find the cause in the workflow (a route that did not fire, a missing rule, a wrong number), fix it in
    `make.py`, check, save, test again. Fix causes, not one customer: the scored customers are different people.
