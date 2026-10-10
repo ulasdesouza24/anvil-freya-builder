@@ -57,6 +57,19 @@ The slot is the name of the brief file (`hidden-1`). The default is `--test none
 4. If the run crashed or the export is missing: find the cause in the trace, fix only the crash in the builder
    (commit it with a message that says it is a crash fix), and run the builder again on that brief.
 
+## When the platform is down or slow
+
+Seen on Saturday 2026-10-10 from 16:50 to 17:10 Istanbul time: chat gave 503, and for some minutes after, a tool call
+took 6 to 11 seconds and simulations hung.
+
+1. Check with `python lib/platform_check.py <workflow_id>`. Wait at least 2 minutes between two checks.
+2. The builder does not change a workflow on an outage test, and it publishes the best tested version. A run without
+   any test publishes its first checked draft.
+3. A test that you stop on your side keeps running on Freya until it ends, and the next test waits for it. Do not
+   stop a test unless the run is lost anyway.
+4. When the platform is up again and time is left, run the builder once more on the brief. Submit the run with the
+   better test result, with the trace of that run.
+
 ## Submit (before 20:00 UTC)
 
 1. Commit `submission/` (the two workflows and the two traces) and push to GitHub.
