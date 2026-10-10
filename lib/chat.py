@@ -32,6 +32,10 @@ def main():
     if not a:
         sys.exit(__doc__)
     wid, msgs, variables = a[0], [], {}
+    # lib/test.py starts the first test of a slot only after a chat check of the workflow.
+    mark = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "work", ".chat-checks")
+    os.makedirs(mark, exist_ok=True)
+    open(os.path.join(mark, wid), "w").write(str(time.time()))
     i = 1
     while i < len(a):
         if a[i] == "--case":

@@ -65,7 +65,7 @@ and the export. When the time is short, stop testing and save the best workflow 
    records the result for that version. At the end the builder publishes the best tested version, not the last one,
    so a late change that makes the agent worse does no harm. Do not start a large change in the last 8 minutes: it
    cannot be tested.
-   **Never stop a test** (no `kill`, `pkill` or Ctrl-C), also when you find a bug during it. Freya cannot stop a
+   **Never stop a test** (no `kill`, `pkill`, `timeout` or Ctrl-C), also when you find a bug during it. Freya cannot stop a
    simulation: it runs on to the end, and your next test waits for it, so a stopped test costs its full time and
    gives no result. Fix the bug, save, and start the next test when the running one ends. Start only one test at a
    time. `python lib/sim_queue.py` shows what runs.

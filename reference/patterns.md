@@ -17,7 +17,10 @@ route that code can check:
    can carry it.
 3. `someone_else` and other early exits (conversation): what the brief allows to tell a third party, and a callback
    if the brief has one. Nothing about the account.
-4. `identity` (conversation): ask the security questions one at a time, call the verify tool after each answer. The
+4. `identity` (conversation): ask the security questions one at a time, call the verify tool after EACH answer,
+   also when the same message holds a question or a complaint ("1990. How much do I owe?"): check the answer first,
+   then reply. Seen in a test: the model answered the question, skipped the check of a wrong answer, and so gave the
+   customer one more try than the brief allows. Never judge an answer yourself: only the tool result counts. The
    result hook says what the answer means (passed, wrong with N left, hint such as a swapped day and month, all
    passed). Route on the tool's result variables: all passed, check ended, refused.
 5. `load_account` (api_request, passthrough): the account tool in `pre_actions`, `response_mapping` on the node.
@@ -49,6 +52,11 @@ words, ask back, and talk about other things. Write these rules into the prompts
   clearly. Ask once more.
 - When the brief says that the agent proposes the values (an amount, a date), the agent never asks the customer for
   them. When the customer accepts a date without an amount, the amount is the one of the current offer.
+- An objection changes only the value that the customer objects to. A date that is too late gets a new date (for
+  example the deadline) with the SAME amount. An amount that is too high gets the lower amount (for example the
+  floor) with the same date. Seen in a test: "I can only pay on the 6th" (after the deadline) got "the deadline with
+  the floor", and the bank lost 850 dollars of the promise. Put this rule in the prompt of the stage, and give the
+  offer plan in the facts block as separate amount and date steps.
 
 ## Dates and numbers: code, not the model
 

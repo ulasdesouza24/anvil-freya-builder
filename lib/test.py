@@ -34,12 +34,31 @@ def main():
     # The test runs the published version. A workflow.json written after the last save is not that version.
     if wf.stat().st_mtime > state_file.stat().st_mtime + 1:
         sys.exit("work/<slot>/workflow.json changed after the last save: save and publish it, then start the test")
+    # The first test of a slot needs a chat check first: a first draft often has a bug that chat shows in seconds,
+    # and a test of it costs 3 to 11 minutes that cannot be stopped.
+    mark = ROOT / "work" / ".chat-checks" / state["workflow_id"]
+    if not snapshot.load(slot) and not list((ROOT / "work" / slot).glob("run*.json")) and not mark.exists():
+        sys.exit(f"talk to the workflow first: python lib/chat.py {state['workflow_id']} --case <a practice case> \"Hello?\" ... "
+                 "Check the first line, the identity step and one route. Then start the test.")
     text = wf.read_text()
-    print(f"test of version {state.get('version')} (agent {state['agent_id']}), options {' '.join(opts)}", flush=True)
+    print(f"test of version {state.get('version') or 1} (agent {state['agent_id']}), options {' '.join(opts)}", flush=True)
     r = subprocess.run([sys.executable, str(KIT / "tools" / "run_cases.py"), state["agent_id"], *opts], cwd=ROOT)
     if not pathlib.Path(out).exists() and not (ROOT / out).exists():
         sys.exit(f"run_cases ended with code {r.returncode} and wrote no result")
-    e = snapshot.record(slot, out if pathlib.Path(out).exists() else str(ROOT / out), style, text=text)
+    run_file = out if pathlib.Path(out).exists() else str(ROOT / out)
+    up = False
+    if snapshot.outage(json.loads(pathlib.Path(run_file).read_text())):
+        # No customer got a tool call. Find out whether the platform or the agent caused it.
+        api = ROOT / "work" / slot / "input" / "openapi.json"
+        chk = subprocess.run([sys.executable, str(ROOT / "lib" / "platform_check.py"), state["workflow_id"]] + ([str(api)] if api.exists() else []),
+                             cwd=ROOT, capture_output=True, text=True)
+        print(chk.stdout.strip())
+        up = chk.returncode == 0
+        if up:
+            print("THE PLATFORM IS UP: the agent made no tool call in any call, so the cause is in the workflow. Read the "
+                  "calls with lib/analyze_call.py (a repeated opening line, a route that never fires, a tool the model "
+                  "cannot call) and fix it.")
+    e = snapshot.record(slot, run_file, style, text=text, platform_up=up)
     if e is None:
         print("not recorded: no customer got a tool call, so the platform was down. Do not change the workflow: run "
               "lib/platform_check.py, wait, and test again.")

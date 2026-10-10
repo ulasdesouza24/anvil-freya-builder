@@ -30,10 +30,11 @@ def outage(run):
     return bool(rows) and not run.get("passed") and all(not r.get("tools") for r in rows if isinstance(r, dict))
 
 
-def record(slot, run_file, style=None, text=None):
+def record(slot, run_file, style=None, text=None, platform_up=False):
     hist = load(slot)
     run = json.loads(pathlib.Path(run_file).read_text())
-    if outage(run):
+    # A run that looks like an outage while the platform check says up is the agent's own failure: it counts.
+    if outage(run) and not platform_up:
         return None
     text = text if text is not None else (ROOT / "work" / slot / "workflow.json").read_text()
     # A test of the same workflow as the last snapshot adds to that version.
