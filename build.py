@@ -1,6 +1,6 @@
 """Anvil's Freya builder: a brief in, a phone agent (a Freya workflow) out.
 
-    python build.py <brief.md> [<more briefs>] [--openapi tools/openapi.json] [--slot name] [--test A|B|none] [--minutes 28]
+    python3 build.py <brief.md> [<more briefs>] <tool API file.json> [--slot name] [--test A|B|none] [--minutes 28]
 
 One command, no manual step. Claude (through the Claude Agent SDK and the user's login) works as the builder,
 with the skills in .claude/skills and the tested helpers in lib/:
@@ -34,25 +34,41 @@ PRACTICE = {
 }
 
 
+SECRET_ENV = ("FREYA_API_KEY", "FREYA_BANK_TEAM_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY")
+
+
+def redact(text):
+    """The trace is committed: no key value may be in it."""
+    for k in SECRET_ENV:
+        v = os.environ.get(k)
+        if v and len(v) >= 8:
+            text = text.replace(v, f"<{k}>")
+    return text
+
+
 class Trace:
-    """The trace that the rules ask for: plain text, one event per line, and the full message log next to it."""
+    """The trace that the rules ask for: plain text, one event per line, and the full message log next to it.
+
+    The text trace goes to traces/<start>-<slot>.log and to submission/<slot>.trace.log (the file to commit)."""
 
     def __init__(self, slot):
         stamp = time.strftime("%Y%m%d-%H%M%S")
         (HERE / "traces").mkdir(exist_ok=True)
-        self.text = (HERE / "traces" / f"{stamp}-{slot}.log").open("w")
+        (HERE / "submission").mkdir(exist_ok=True)
+        self.texts = [(HERE / "traces" / f"{stamp}-{slot}.log").open("w"), (HERE / "submission" / f"{slot}.trace.log").open("w")]
         self.jsonl = (HERE / "traces" / f"{stamp}-{slot}.jsonl").open("w")
         self.t0 = time.time()
         self.calls = 0
 
     def line(self, kind, text):
-        s = f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')} +{time.time() - self.t0:6.0f}s {kind:<8} {text}"
-        self.text.write(s + "\n")
-        self.text.flush()
+        s = redact(f"{time.strftime('%Y-%m-%dT%H:%M:%S%z')} +{time.time() - self.t0:6.0f}s {kind:<8} {text}")
+        for f in self.texts:
+            f.write(s + "\n")
+            f.flush()
         print(s, flush=True)
 
     def raw(self, obj):
-        self.jsonl.write(json.dumps(obj, default=str) + "\n")
+        self.jsonl.write(redact(json.dumps(obj, default=str)) + "\n")
         self.jsonl.flush()
 
 
@@ -157,22 +173,32 @@ def finish(args, trace):
     if not ids:
         trace.line("error", f"no workflow was saved for the slot {args.slot}")
         return 1
-    out = HERE / "out" / f"{args.slot}.workflow.json"
+    out = HERE / "submission" / f"{args.slot}.workflow.json"
     out.parent.mkdir(exist_ok=True)
     freya.export_workflow(ids["workflow_id"], str(out))
-    trace.line("export", f"workflow_id={ids['workflow_id']} agent_id={ids.get('agent_id')} -> {out}")
+    wf = json.loads(out.read_text()).get("workflow", {})
+    nodes = wf.get("nodes") or {}
+    tools = sorted({t.get("function", {}).get("name") for n in nodes.values() for t in (n.get("tools") or []) + (n.get("pre_actions") or [])} - {None})
+    trace.line("created", f"workflow_id={ids['workflow_id']} agent_id={ids.get('agent_id')} steps={len(nodes)} tools={len(tools)} ({', '.join(tools)})")
+    trace.line("export", f"{out.relative_to(HERE)}")
+    shutil.copy(out, HERE / "out" / out.name) if (HERE / "out").exists() else None
     return 0
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("briefs", nargs="+")
-    ap.add_argument("--openapi", required=True, help="the tool API file that comes with the brief")
+    ap.add_argument("files", nargs="+", help="the brief file(s), in order, then the tool API file (.json)")
+    ap.add_argument("--openapi", help="the tool API file, when it is not given as the last file")
     ap.add_argument("--slot")
     ap.add_argument("--test", choices=["A", "B", "none"], default="none")
     ap.add_argument("--minutes", type=float, default=28)
     ap.add_argument("--model", default=os.environ.get("BUILDER_MODEL", "claude-opus-5-5"))
     args = ap.parse_args()
+    args.briefs = [f for f in args.files if not f.endswith(".json")]
+    jsons = [f for f in args.files if f.endswith(".json")]
+    args.openapi = args.openapi or (jsons[-1] if jsons else None)
+    if not args.briefs or not args.openapi:
+        sys.exit("give the brief file(s) and the tool API file (.json)")
     args.slot = args.slot or pathlib.Path(args.briefs[-1]).stem
     for k in ("FREYA_API_KEY", "FREYA_BANK_TEAM_KEY"):
         if not os.environ.get(k):

@@ -3,6 +3,6 @@ traces/
 out/
 .freya-agents.json
 __pycache__/
-kit/
 results/
 .venv/
+kit/.personas.json
