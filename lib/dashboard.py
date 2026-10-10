@@ -100,7 +100,7 @@ def running_step():
             m = re.search(r"--out \S*/([\w-]+)\.json", l)
             return m.group(1) if m else "a test"
         if "build.py" in l and "--slot rh-" in l:
-            m = re.search(r"--slot (rh-\w+)", l)
+            m = re.search(r"--slot (rh-[\w-]+)", l)
             return "build " + (m.group(1) if m else "")
     return None
 
