@@ -3,7 +3,7 @@
     python lib/platform_check.py <workflow_id> [<tool API file>]
 
 The chat check is one chat turn on the workflow. The tool API check is one call of the first path of the tool API
-file with an unknown customer id: an answer with HTTP 200 (also with ok false) means that the service is up.
+file with an unknown customer id: any answer below HTTP 500 (also 404 with ok false) means that the service is up.
 
 Use it when a test gives no tool call for every customer, or when chat gives 503. Wait at least 2 minutes between
 two checks: the rules forbid load on the platform.
@@ -31,8 +31,9 @@ if __name__ == "__main__":
             code = e.code
         except Exception as e:
             code = str(e)[:80]
-        print(("TOOL API UP" if code == 200 else "TOOL API DOWN") + f": {url} -> {code}")
-        up = code == 200
+        # An unknown customer gets 404 with a JSON body: the service is up. Only a 5xx or no answer means down.
+        up = isinstance(code, int) and code < 500
+        print(("TOOL API UP" if up else "TOOL API DOWN") + f": {url} -> {code}")
     try:
         r = freya.api("POST", "/api/v2/chat/message", {"workflowId": sys.argv[1], "message": "Hello?", "customerVariables": {"customer_id": "c_platform_check", "first_name": "Test", "last_name": "Check", "title": "Mr", "now": "2026-10-14T11:00"}})
         if r.get("callId"):
