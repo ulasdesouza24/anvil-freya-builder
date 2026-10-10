@@ -43,6 +43,10 @@ Merge or split stages when the brief needs it. A stage with strict rules of its 
 - Amounts: write them as speech in code (`money(420)` gives "420 dollars"). The model said "dollars365" when it got
   a bare number.
 - Counters (attempts, wrong answers): keep them in the tool results or in code, not in the model's memory.
+- Offer plans: when the brief counts persuasion attempts (per product, per band), compute the full plan in code and
+  put it in the facts block for each item: "attempt 1: <amount> on <date>; attempt 2: <amount> on <date>; then
+  refused". In the prompt, add the check: "Before you record a refusal for an item, make sure that you said every
+  attempt of its plan." With several items, the model loses count if it has no written plan.
 
 ## Tools
 
