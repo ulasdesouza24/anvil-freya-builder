@@ -58,12 +58,17 @@ and the export. When the time is short, stop testing and save the best workflow 
 7. **Talk to it.** `python lib/chat.py <workflow_id> --case <a practice case id> "<user turn>" ...` when practice
    customers exist, else `--vars '<call variables>'`. Check the first line, the identity step and one route.
 
-8. **Test, when the prompt says that practice customers exist.** In the foreground:
-   `python kit/tools/run_cases.py <agent_id> <the options from the prompt> --out work/<slot>/run1.json`. A run takes 3
-   to 11 minutes.
-   After each test, record it: `python lib/snapshot.py record <slot> work/<slot>/run1.json [--style <style>]`. This keeps
-   each tested version. At the end the builder publishes the best tested version, not the last one, so a late change
-   that makes the agent worse does no harm. Do not start a large change in the last 8 minutes: it cannot be tested.
+8. **Test, when the prompt says that practice customers exist.** Save first, then:
+   `python lib/test.py <slot> <the options from the prompt> --out work/<slot>/run<N>.json` (a new N for each test).
+   A run takes 3 to 11 minutes. You may start it in the background (`nohup ... > work/<slot>/run<N>.log 2>&1 &`) and
+   use `lib/chat.py` meanwhile. A test runs the version that was published when it started, and `lib/test.py`
+   records the result for that version. At the end the builder publishes the best tested version, not the last one,
+   so a late change that makes the agent worse does no harm. Do not start a large change in the last 8 minutes: it
+   cannot be tested.
+   **Never stop a test** (no `kill`, `pkill` or Ctrl-C), also when you find a bug during it. Freya cannot stop a
+   simulation: it runs on to the end, and your next test waits for it, so a stopped test costs its full time and
+   gives no result. Fix the bug, save, and start the next test when the running one ends. Start only one test at a
+   time. `python lib/sim_queue.py` shows what runs.
    A platform outage looks like this: every customer fails with no tool call, the median agent turn is 0 s, or chat
    gives 503, or every tool call fails. Then do not change the workflow. Run
    `python lib/platform_check.py <workflow_id> <tool API file>` every 2 minutes (not

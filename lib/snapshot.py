@@ -1,14 +1,15 @@
 """Keep each tested version of a workflow, so that the best one is the result (the Anvil evolve rule: a change that
 makes the agent worse is not kept).
 
-    python lib/snapshot.py record <slot> <run_cases --out json> [--style <name>]   # after each test
+    python lib/snapshot.py record <slot> <run_cases --out json> [--style <name>]   # after each test (lib/test.py does it)
     python lib/snapshot.py best <slot>                                              # prints the best version
 
-`record` copies work/<slot>/workflow.json to work/<slot>/versions/v<N>.json and adds the result to
-work/<slot>/history.json. The best version has the most passes on plain runs (no --style), then the most passes on
+`record` copies the tested workflow to work/<slot>/versions/v<N>.json and adds the result to
+work/<slot>/history.json. A simulation runs the version that was published when it started, so lib/test.py gives
+the workflow text from the start of the test. Without it, `record` uses work/<slot>/workflow.json. The best version has the most passes on plain runs (no --style), then the most passes on
 style runs, then the later version.
 """
-import json, pathlib, shutil, sys, time
+import json, pathlib, sys, time
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -29,20 +30,19 @@ def outage(run):
     return bool(rows) and not run.get("passed") and all(not r.get("tools") for r in rows if isinstance(r, dict))
 
 
-def record(slot, run_file, style=None):
+def record(slot, run_file, style=None, text=None):
     hist = load(slot)
-    wf = ROOT / "work" / slot / "workflow.json"
     run = json.loads(pathlib.Path(run_file).read_text())
     if outage(run):
         return None
-    text = wf.read_text()
+    text = text if text is not None else (ROOT / "work" / slot / "workflow.json").read_text()
     # A test of the same workflow as the last snapshot adds to that version.
     same = next((h for h in reversed(hist) if (ROOT / h["file"]).exists() and (ROOT / h["file"]).read_text() == text), None)
     if same is None:
         n = len({h["version"] for h in hist}) + 1
         dst = ROOT / "work" / slot / "versions" / f"v{n}.json"
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(wf, dst)
+        dst.write_text(text)
         entry = {"version": n, "file": str(dst.relative_to(ROOT)), "plain": [], "style": [], "at": time.time()}
         hist.append(entry)
     else:

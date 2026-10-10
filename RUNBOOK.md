@@ -25,8 +25,11 @@ comes with its own tool API file. Freya sends the submission steps by e-mail bef
 
 3. Check the connection: `python -c "import sys; sys.path.insert(0,'kit'); import freya; print(freya.workspace_id())"`.
 4. Check the Claude login: `claude -p "say ok"` must print an answer.
-5. Make sure that no simulation runs in the workspace (one runs at a time).
-6. Commit the builder. The commit at 17:00 UTC is the frozen builder: after it, only crash fixes.
+5. Make sure that no simulation runs in the workspace: `python lib/sim_queue.py` must say "no simulation runs".
+6. Remove the practice and rehearsal files from `submission/`: `git rm -q submission/brief-* ; rm -f submission/rh-*`.
+   The final commit must hold only the files of the hidden briefs.
+7. Commit the builder. The commit at 17:00 UTC is the frozen builder: after it, only crash fixes.
+8. Start the trace screen: `python3 lib/dashboard.py`, then open http://localhost:8765.
 
 ## At 17:00 UTC
 
@@ -65,14 +68,16 @@ took 6 to 11 seconds and simulations hung.
 1. Check with `python lib/platform_check.py <workflow_id>`. Wait at least 2 minutes between two checks.
 2. The builder does not change a workflow on an outage test, and it publishes the best tested version. A run without
    any test publishes its first checked draft.
-3. A test that you stop on your side keeps running on Freya until it ends, and the next test waits for it. Do not
-   stop a test unless the run is lost anyway.
+3. A test that you stop on your side keeps running on Freya until it ends, and the next test waits for it. Freya
+   cannot stop a simulation. Do not stop a test unless the run is lost anyway. Before a new builder run, wait until
+   `python lib/sim_queue.py` says "no simulation runs".
 4. When the platform is up again and time is left, run the builder once more on the brief. Submit the run with the
    better test result, with the trace of that run.
 
 ## Submit (before 20:00 UTC)
 
-1. Commit `submission/` (the two workflows and the two traces) and push to GitHub.
+1. Check that `submission/` holds only the hidden-brief files: `ls submission/`. Commit `submission/` (the two
+   workflows and the two traces) and push to GitHub.
 2. Send the form to the address in the kit e-mail:
 
    ```json

@@ -148,6 +148,9 @@ words, ask back, and talk about other things. Write these rules into the prompts
   with the fact only. Do not end the answer with the offer again ("Would you be able to pay that today?"). The judge
   counts an offer said again as a new offer. Write in the prompt: "When the customer asks a question, answer it and
   wait. Do not repeat an offer."
+- Begin the facts block with today, from the call variable: "TODAY is Friday 16 October 2026 (2026-10-16). 'Today'
+  always means this date." Without this line the model takes today from its own clock and gets weekdays, deadlines
+  and "tomorrow" wrong. A pre-hook of a tool with a date field checks the date against today too.
 - After a step that passes (a verified answer), say what comes next in the same message. A bare "Thank you." makes
   the customer ask what the call is about.
 
@@ -161,6 +164,7 @@ words, ask back, and talk about other things. Write these rules into the prompts
 
 ## Testing
 
-- `lib/chat.py` talks to the published workflow in seconds. `run_cases.py` is the real test (3 to 11 minutes).
+- `lib/chat.py` talks to the published workflow in seconds. `lib/test.py` (it runs `run_cases.py`) is the real test
+  (3 to 11 minutes). A test that you stop keeps running on Freya, and the next test waits for it: never stop one.
 - Read failed calls with `lib/analyze_call.py`: the ROUTE lines show why a transition did or did not fire.
 - One green run is a hint, not a proof. Fix the cause of a failure in the design, so that other customers pass too.

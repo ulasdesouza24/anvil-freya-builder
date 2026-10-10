@@ -28,9 +28,14 @@ def services_up(kit, probe_workflow):
 
 
 def wait_up(out, kit, probe_workflow):
+    """Wait until the tool API is up and no simulation runs: a build must not lose its time budget in the queue."""
+    sys.path.insert(0, str(ROOT / "lib"))
+    import sim_queue
+
     for i in range(60):
         ok, msg = services_up(kit, probe_workflow)
         if ok:
+            sim_queue.wait_empty(say=lambda t: log(out, t), every=30)
             return
         log(out, f"waiting: {msg}")
         time.sleep(180)

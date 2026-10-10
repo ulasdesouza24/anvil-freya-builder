@@ -30,7 +30,7 @@ sys.path.insert(0, str(KIT))
 PRACTICE = {
     "A": "run them with `--brief A`",
     "B": "run them with `--brief B` (the customers of Brief A expect the rules of Brief A alone, so they do not apply)",
-    "none": "none exist for this brief: do not run kit/tools/run_cases.py",
+    "none": "none exist for this brief: do not run lib/test.py or kit/tools/run_cases.py",
 }
 
 
@@ -72,19 +72,19 @@ class Trace:
         self.jsonl.flush()
 
 
-def purpose_of(message):
-    """One line about what a model call did: its first sentence, or the tools it called."""
+def purpose_of(blocks):
+    """One line about what a model call did: its first sentence, and the tools it called."""
     from claude_agent_sdk import TextBlock, ToolUseBlock
 
     texts, tools = [], []
-    for b in message.content:
+    for b in blocks:
         if isinstance(b, TextBlock) and b.text.strip():
             texts.append(" ".join(b.text.split())[:160])
         elif isinstance(b, ToolUseBlock):
             inp = b.input or {}
             what = inp.get("description") or inp.get("command") or inp.get("file_path") or inp.get("skill") or ""
             tools.append(f"{b.name}({' '.join(str(what).split())[:110]})")
-    return "; ".join(texts[:1] + tools) or "(no text)"
+    return "; ".join(texts[:1] + tools) or "thinks about the next step"
 
 
 def created_from(message, trace):
@@ -147,20 +147,37 @@ async def run_builder(args, trace):
     )
     trace.line("start", f"briefs={args.briefs} openapi={args.openapi} slot={args.slot} test={args.test} model={args.model} budget={args.minutes}min")
 
+    # The SDK gives one message for each content block (thinking, text, tool use) of a model call. They share a
+    # message id: the trace writes one line for each model call, when the call is complete.
+    pending = {"id": None, "model": None, "blocks": []}
+
+    def flush():
+        if pending["blocks"]:
+            trace.calls += 1
+            trace.line("model", f"{pending['model']} | {purpose_of(pending['blocks'])}")
+        pending.update(id=None, model=None, blocks=[])
+
     async def consume():
         async for message in query(prompt=prompt, options=options):
             trace.raw({"type": type(message).__name__, **(dataclasses.asdict(message) if dataclasses.is_dataclass(message) else {"repr": repr(message)})})
             if isinstance(message, AssistantMessage):
-                trace.calls += 1
-                trace.line("model", f"{getattr(message, 'model', args.model)} | {purpose_of(message)}")
-            elif isinstance(message, UserMessage):
+                mid = getattr(message, "message_id", None) or id(message)
+                if mid != pending["id"]:
+                    flush()
+                    pending.update(id=mid, model=getattr(message, "model", None) or args.model)
+                pending["blocks"].extend(message.content)
+                continue
+            flush()
+            if isinstance(message, UserMessage):
                 created_from(message, trace)
             elif isinstance(message, ResultMessage):
                 trace.line("result", f"{message.num_turns} turns, {message.duration_ms / 1000:.0f} s, reported cost ${message.total_cost_usd or 0:.2f}")
+        flush()
 
     try:
         await asyncio.wait_for(consume(), timeout=max(60, deadline - time.time()))
     except asyncio.TimeoutError:
+        flush()
         trace.line("timeout", "the time budget ended: the last saved workflow is the result")
 
 
