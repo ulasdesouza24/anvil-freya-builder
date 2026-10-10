@@ -149,6 +149,10 @@ words, ask back, and talk about other things. Write these rules into the prompts
 - `system_prompt`: identity, language, tone, the honesty rule, the one-question-at-a-time rule, and the rules that
   hold in every stage (words never said before verification, the robot question, the scam question).
 - `task_message`: this stage's rules in the brief's order, then the facts block. Say which tool to call when.
+- A word that the brief forbids before an event (for example "recorded" before a successful promise) must not
+  appear earlier in another sense. The judge reads such a check word by word: "This call is recorded" in the opening
+  failed "does not say 'recorded' before a successful call" in 2 of 3 runs. When the brief gives the meaning and not
+  the exact words, use another form ("We record this call."). When the brief gives the exact sentence, keep it.
 - Copy fixed sentences of the brief word for word into the prompt and tell the model to say them exactly ("say this
   sentence: ..."). The judge checks them.
 - Never name nodes or describe routing in a prompt.
