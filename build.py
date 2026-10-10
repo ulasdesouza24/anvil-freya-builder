@@ -16,7 +16,7 @@ log is traces/<start>-<slot>.jsonl.
 
 Needs FREYA_API_KEY and FREYA_BANK_TEAM_KEY (source the kit's env.sh), and a Claude login.
 """
-import argparse, asyncio, dataclasses, json, os, pathlib, shutil, sys, time
+import argparse, asyncio, dataclasses, json, os, pathlib, shutil, signal, sys, time
 
 HERE = pathlib.Path(__file__).resolve().parent
 # The public files of the hackathon kit, copied by setup_kit.sh. The builder works only inside its own folder.
@@ -217,6 +217,25 @@ def main():
         if not os.environ.get(k):
             sys.exit(f"{k} is not set: source the kit's env.sh first")
     trace = Trace(args.slot)
+    # The builder session runs as a child process. When this command stops (a signal, an error), its children stop
+    # too: an orphan session would go on changing the workflow.
+    try:
+        os.setpgrp()
+    except Exception:
+        pass
+
+    def stop_children(signum=None, frame=None):
+        trace.line("stop", f"signal {signum}: the builder session stops")
+        try:
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            os.killpg(0, signal.SIGTERM)
+        except Exception:
+            pass
+        sys.exit(1)
+
+    signal.signal(signal.SIGTERM, stop_children)
+    signal.signal(signal.SIGINT, stop_children)
+    signal.signal(signal.SIGHUP, stop_children)
     try:
         asyncio.run(run_builder(args, trace))
         code = finish(args, trace)
