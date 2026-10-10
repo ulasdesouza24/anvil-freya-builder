@@ -123,6 +123,12 @@ words, ask back, and talk about other things. Write these rules into the prompts
   result is clear. Set the order of a date said only in numbers with the guide key `_date_order` ("DMY" or "MDY")
   from the brief. Change the plan of a field with `guide[tool]["normalize"] = {field: "date"|"number"|"digits"|"none"}`.
 - Code steps have the same helpers (`words_to_number`, `digits`, `spoken_date`) for values that come from speech.
+  Give `spoken_date` today: `spoken_date(text, "DMY", year, today)`. Customers often say a day with no month
+  ("Monday the twenty-sixth"). Without today the code finds no date, and a date check loop asks again and again
+  (seen in a test: more than 30 times).
+- A loop that asks for a value (a date check, a security answer) asks at most twice. After the second unclear
+  reply, the agent proposes the value it understood (or the brief's default, for example the deadline) as a
+  yes-or-no question. Count the tries in code (`vars`), not in the model.
 
 - A `pre_process_code` hook can fix what the model filled in before the request goes out: `config["body"]` is the
   request body. Use it to normalize values: a date said in words to `YYYY-MM-DD` (read a date of numbers only in the

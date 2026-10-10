@@ -128,10 +128,51 @@ def _year(toks):
             return y if 1900 <= y <= 2100 else None
     return None
 
-def spoken_date(text, order="DMY", default_year=None):
+_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+def _day_of(toks):
+    """The day of the month in tokens: 'twenty sixth', '26', 'twenty six', 'sixth'. None if there is none."""
+    for i, w in enumerate(toks):
+        if w in _ORD:
+            d = _ORD[w]
+            if i > 0 and toks[i - 1] in ("twenty", "thirty"):
+                d += _TENS[toks[i - 1]]
+            return d
+        if w.isdigit() and 1 <= int(w) <= 31 and len(w) <= 2:
+            return int(w)
+    for i, w in enumerate(toks):
+        if w in ("twenty", "thirty") and i + 1 < len(toks) and toks[i + 1] in _UNITS and _UNITS[toks[i + 1]] < 10:
+            return _TENS[w] + _UNITS[toks[i + 1]]
+    return None
+
+def _day_only(toks, today):
+    """'Monday the twenty-sixth', 'the 26th': no month. The first date from today on with that day (and that
+    weekday, when one is said). '' when it is not clear."""
+    try:
+        t0 = datetime.date.fromisoformat(str(today)[:10])
+    except Exception:
+        return ""
+    wd = next((_WEEKDAYS.index(w) for w in toks if w in _WEEKDAYS), None)
+    day = _day_of([w for w in toks if w not in _WEEKDAYS])
+    if not day:
+        return ""
+    y, m = t0.year, t0.month
+    for _ in range(3):
+        try:
+            d = datetime.date(y, m, day)
+        except ValueError:
+            d = None
+        if d and d >= t0 and (wd is None or d.weekday() == wd):
+            return d.isoformat()
+        m = 1 if m == 12 else m + 1
+        y = y + 1 if m == 1 else y
+    return ""
+
+def spoken_date(text, order="DMY", default_year=None, today=None):
     """A date said by a customer -> 'YYYY-MM-DD', or '' when it is not clear.
     'the twenty-second of October' (+ default_year), '14 March 1988', 'March 14th, 1988', '14/03/1988' (order DMY),
-    'nineteen eighty eight, March fourteenth'. An ISO date stays as it is."""
+    'nineteen eighty eight, March fourteenth'. An ISO date stays as it is. With `today` ('YYYY-MM-DD'), a day with
+    no month ('Monday the twenty-sixth', 'the 26th') is the first such date from today on."""
     s = str(text).strip()
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
         return s
@@ -147,7 +188,7 @@ def spoken_date(text, order="DMY", default_year=None):
     toks = _tokens(s)
     mo = next((i + 1 for i, name in enumerate(_MONTHS) for w in toks if w == name or (len(w) >= 3 and name.startswith(w) and w not in ("mar", "may") ) or w == name[:3]), None)
     if not mo:
-        return ""
+        return _day_only(toks, today) if today else ""
     mname = _MONTHS[mo - 1]
     rest = [w for w in toks if not (w == mname or w == mname[:3] or (len(w) >= 3 and mname.startswith(w)))]
     day, used = None, set()

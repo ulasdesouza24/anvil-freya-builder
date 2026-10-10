@@ -42,7 +42,7 @@ try:
                 if n is not None:
                     b[f] = int(n) if n == int(n) else n
             elif kind == "date" and isinstance(v, str):
-                d = spoken_date(v, order, year)
+                d = spoken_date(v, order, year, now[:10] or None)
                 if d:
                     b[f] = d
             elif kind == "digits":
