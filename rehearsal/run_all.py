@@ -1,11 +1,15 @@
 """The full rehearsal, from zero, in one command. It waits when Freya or the bank's tool API is down.
 
-    python3 rehearsal/run_all.py [--kit ~/Desktop/freya-kit/build-the-builder] [--only a,b,raw]
+    python3 rehearsal/run_all.py [--kit ~/Desktop/freya-kit/build-the-builder] [--only a,b,raw] [--raw-test none]
+    python3 rehearsal/run_all.py --measure <slot> --brief B --styles pieces     # measure an existing slot again
 
 Steps (each build uses a new slot, so nothing of an earlier run mixes in):
   a    build Brief A (test A), then 3 runs of each practice customer, then one run in each hard customer style
   b    build Brief A + B (test B), then 3 runs of each Brief B customer
-  raw  build the raw-material version of Brief A (rehearsal/brief-a-raw.md, test A), then 3 runs of each customer
+  raw  build the raw-material version of Brief A (rehearsal/brief-a-raw.md), then 3 runs of each customer.
+       With --raw-test none the builder runs no practice customer, as on a hidden brief.
+  --measure publishes the best tested version of an existing slot (lib/snapshot.py), then runs 3 runs of each
+       customer and one run in each style of --styles.
 The summary is results/rehearsal-<start>/summary.md. A customer counts only with 3 passes out of 3, as in the final.
 """
 import argparse, json, os, pathlib, subprocess, sys, time
@@ -80,13 +84,31 @@ def main():
     ap.add_argument("--kit", default=os.path.expanduser("~/Desktop/freya-kit/build-the-builder"))
     ap.add_argument("--only", default="a,b,raw")
     ap.add_argument("--probe", default="ed036ff6-6c55-472d-9fa4-831b6afc7bb6", help="a workflow for the chat check")
+    ap.add_argument("--raw-test", default="A", choices=["A", "none"], help="the practice customers of the raw build")
+    ap.add_argument("--measure", help="an existing slot to measure again with its best tested version")
+    ap.add_argument("--brief", default="A", help="the practice customers for --measure")
+    ap.add_argument("--styles", default="", help="comma list of styles for --measure")
     a = ap.parse_args()
     kit = pathlib.Path(a.kit)
     stamp = time.strftime("%Y%m%d-%H%M")
     out = ROOT / "results" / f"rehearsal-{stamp}"
     out.mkdir(parents=True)
-    steps = a.only.split(",")
+    steps = a.only.split(",") if not a.measure else []
     summary = {}
+    if a.measure:
+        sys.path.insert(0, str(ROOT / "lib"))
+        sys.path.insert(0, str(kit))
+        import freya, snapshot
+
+        best = snapshot.best(a.measure)
+        state_file = ROOT / ".freya-agents.json"
+        if best:
+            freya.save_workflow(a.measure, json.loads((ROOT / best["file"]).read_text()), state_file=str(state_file))
+            log(out, f"published the best tested version {best['version']} of {a.measure}")
+        agent = json.loads(state_file.read_text())[a.measure]["agent_id"]
+        summary[f"{a.measure} 3 runs"] = run_cases(out, kit, a.probe, agent, a.brief, f"{a.measure}-reps3", reps=3)
+        for st in filter(None, a.styles.split(",")):
+            summary[f"{a.measure} style {st}"] = run_cases(out, kit, a.probe, agent, a.brief, f"{a.measure}-{st}", style=st)
     if "a" in steps:
         wait_up(out, kit, a.probe)
         agent, b = build(out, kit, f"rh-a-{stamp}", [kit / "briefs" / "brief-a.md"], "A")
@@ -101,7 +123,7 @@ def main():
         summary["B 3 runs"] = run_cases(out, kit, a.probe, agent, "B", "b-reps3", reps=3)
     if "raw" in steps:
         wait_up(out, kit, a.probe)
-        agent, b = build(out, kit, f"rh-raw-{stamp}", [ROOT / "rehearsal" / "brief-a-raw.md"], "A")
+        agent, b = build(out, kit, f"rh-raw-{stamp}", [ROOT / "rehearsal" / "brief-a-raw.md"], a.raw_test)
         summary["raw build"] = b
         summary["raw 3 runs"] = run_cases(out, kit, a.probe, agent, "A", "raw-reps3", reps=3)
     lines = ["# Rehearsal " + stamp, "", "| Step | Result |", "|---|---|"]

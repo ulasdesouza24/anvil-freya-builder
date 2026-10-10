@@ -121,8 +121,14 @@ def rehearsal():
         if m:
             done["build " + m.group(2)] = {"at": m.group(1), "score": f"{int(m.group(3)) // 60} min", "detail": "best " + m.group(4)}
     now = running_step()
+    # The steps in the order they ran, then the step that runs now, then (for a full rehearsal) the planned steps.
+    names = list(done)
+    if now and not any(now == n or (now.startswith("build") and now.startswith(n)) for n in names):
+        names.append(now if not now.startswith("build") else " ".join(now.split()[:1] + [now.split()[1].rsplit("-", 2)[0]]))
+    if any(l.split(" ", 1)[-1].startswith("build rh-a") for l in prog[:1]):
+        names += [n for n in PLAN if n not in names]
     steps = []
-    for name in PLAN:
+    for name in names:
         st = "done" if name in done else ("running" if now and (now == name or (now.startswith("build") and now.startswith(name))) else "waiting")
         steps.append({"name": name, "state": st, **done.get(name, {})})
     live = ""
