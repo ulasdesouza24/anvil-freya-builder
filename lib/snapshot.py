@@ -62,7 +62,16 @@ def score(entry):
 
 def best(slot):
     hist = [h for h in load(slot) if h["plain"] or h["style"]]
-    return max(hist, key=score) if hist else None
+    if not hist:
+        return None
+    # A version with no style test takes the style score of the version before it. Without this, a fix that was
+    # tested only on plain runs ranks below the version whose style test showed the bug.
+    keys, last_style = {}, -1
+    for h in sorted(hist, key=lambda h: h["version"]):
+        p, st, v = score(h)
+        last_style = st if h["style"] else last_style
+        keys[v] = (p, last_style, v)
+    return max(hist, key=lambda h: keys[h["version"]])
 
 
 if __name__ == "__main__":
