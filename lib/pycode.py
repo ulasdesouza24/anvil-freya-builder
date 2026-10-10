@@ -8,7 +8,10 @@ before it goes to the platform.
     python lib/pycode.py run <file with the body> <sample vars json>     # runs helpers + body, prints the new vars
     python lib/pycode.py node <name> <file with the body> <next node>    # prints a code node JSON
 """
-import json, sys
+import json, os, sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import spoken
 
 HELPERS = r'''
 import datetime, json, re
@@ -155,7 +158,8 @@ def compose(body):
     """Helpers plus the body, as one snippet. The body runs inside try/except: a code step must never raise."""
     lines = body.rstrip().splitlines() or ["pass"]
     wrapped = "try:\n" + "\n".join("    " + l for l in lines) + "\n    vars['code_status'] = 'ok'\nexcept Exception as e:\n    vars['code_status'] = 'error: ' + str(e)[:200]\n"
-    code = HELPERS.strip() + "\n\n" + wrapped
+    # The spoken value helpers (words_to_number, digits, spoken_date) are there too, for values that come from speech.
+    code = HELPERS.strip() + "\n" + spoken.SOURCE.strip() + "\n\n" + wrapped
     for f in FORBIDDEN:
         if f in code:
             raise ValueError(f"the code contains {f!r}: Freya can template it. Write the dict differently (for example dict(a=dict(b=1))).")

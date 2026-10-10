@@ -13,11 +13,78 @@ For each POST path it writes one `api_call` tool, as docs/tools-and-code.md says
 
 The output is a JSON object {tool name: tool object}. A builder copies the tools into the nodes that need them.
 """
-import json, re, sys
+import json, os, re, sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import spoken
 
 CALL_VARIABLES = {"customer_id"}
 # verify_* counts wrong answers, so it is not a plain read: it gets no retry.
 READ_HINT = re.compile(r"^(get|list|find|lookup|read)_")
+
+PRE_HOOK = r'''
+try:
+    b = config.get("body")
+    if isinstance(b, dict):
+        plan = __PLAN__
+        order = __ORDER__
+        now = str(vars.get("now") or "")
+        year = int(now[:4]) if now[:4].isdigit() else None
+        for f, kind in plan.items():
+            v = b.get(f)
+            if v is None or v == "":
+                continue
+            if kind == "number" and isinstance(v, str):
+                n = words_to_number(v)
+                if n is not None:
+                    b[f] = int(n) if n == int(n) else n
+            elif kind == "date" and isinstance(v, str):
+                d = spoken_date(v, order, year)
+                if d:
+                    b[f] = d
+            elif kind == "digits":
+                d = digits(str(v))
+                if d:
+                    b[f] = d
+            elif kind == "time" and isinstance(v, str):
+                m = re.search(r"([0-9]{1,2})[:.h ]?([0-9]{2})?", v)
+                if m:
+                    b[f] = "%02d:%02d" % (int(m.group(1)), int(m.group(2) or 0))
+            elif kind == "date_or_digits" and isinstance(v, str):
+                d = spoken_date(v, order, None)
+                if d:
+                    b[f] = d
+                else:
+                    g = digits(v)
+                    if g:
+                        b[f] = g
+except Exception:
+    pass
+'''
+
+
+def normalize_plan(props):
+    """What a pre-hook does with each body field, from the field's type, format and description."""
+    plan = {}
+    for field, spec in props.items():
+        desc = (spec.get("description") or "").lower()
+        t, fmt = spec.get("type"), spec.get("format")
+        has_date = fmt == "date" or "yyyy-mm-dd" in desc
+        has_digits = "digit" in desc
+        if spec.get("enum"):
+            continue
+        if t in ("number", "integer"):
+            plan[field] = "number"
+        elif has_date and has_digits:
+            plan[field] = "date_or_digits"
+        elif has_date:
+            plan[field] = "date"
+        elif has_digits:
+            plan[field] = "digits"
+        elif "hh:mm" in desc:
+            plan[field] = "time"
+    return plan
+
 
 HOOK = r'''
 try:
@@ -83,6 +150,14 @@ def tool_for(path, op, server, guide):
         },
         "post_process_code": HOOK.replace("__GUIDE__", repr({"failed": g.get("failed", ""), "ok": g.get("ok", ""), "when": [tuple(x) for x in g.get("when", [])]})).strip() + "\n",
     }
+    # Spoken values (amounts and dates in words, digits as words) become the form of the API before the call.
+    plan = {k: v for k, v in {**normalize_plan(props), **g.get("normalize", {})}.items() if v and v != "none"}
+    if plan:
+        tool["pre_process_code"] = spoken.SOURCE.strip() + "\n" + PRE_HOOK.replace("__PLAN__", repr(plan)).replace("__ORDER__", repr(guide.get("_date_order", "DMY"))).strip() + "\n"
+        for code in (tool["pre_process_code"], tool["post_process_code"]):
+            if "{{" in code or "}}" in code:
+                raise ValueError(f"the hook of {name} contains '{{{{' or '}}}}'")
+            compile(code, name, "exec")
     if g.get("response_mapping"):
         tool["response_mapping"] = g["response_mapping"]
     return name, tool

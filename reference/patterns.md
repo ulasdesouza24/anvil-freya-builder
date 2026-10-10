@@ -94,6 +94,14 @@ words, ask back, and talk about other things. Write these rules into the prompts
 
 ## Hooks: code around each tool call
 
+- `lib/tools_from_openapi.py` gives each tool a pre-hook that turns spoken values into the API's form, from the
+  field's type, format and description: a date field gets `YYYY-MM-DD` from "the twenty-second of October", a number
+  field gets 455 from "four hundred and fifty-five", a field described with digits gets "9904" from "nine nine oh
+  four", a field for a date or digits (a security answer) gets the one that fits. It changes a value only when the
+  result is clear. Set the order of a date said only in numbers with the guide key `_date_order` ("DMY" or "MDY")
+  from the brief. Change the plan of a field with `guide[tool]["normalize"] = {field: "date"|"number"|"digits"|"none"}`.
+- Code steps have the same helpers (`words_to_number`, `digits`, `spoken_date`) for values that come from speech.
+
 - A `pre_process_code` hook can fix what the model filled in before the request goes out: `config["body"]` is the
   request body. Use it to normalize values: a date said in words to `YYYY-MM-DD` (read a date of numbers only in the
   order that the brief gives), spoken digits to digits, a time to `HH:MM`, an amount to a number.
