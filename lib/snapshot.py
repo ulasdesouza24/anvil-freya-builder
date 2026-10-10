@@ -64,13 +64,14 @@ def best(slot):
     hist = [h for h in load(slot) if h["plain"] or h["style"]]
     if not hist:
         return None
-    # A version with no style test takes the style score of the version before it. Without this, a fix that was
-    # tested only on plain runs ranks below the version whose style test showed the bug.
-    keys, last_style = {}, -1
+    # A version with no plain test (or no style test) takes that score of the version before it. Without this, a
+    # fix that was tested on one kind of run only ranks below the version whose test showed the bug.
+    keys, last_plain, last_style = {}, -1, -1
     for h in sorted(hist, key=lambda h: h["version"]):
         p, st, v = score(h)
+        last_plain = p if h["plain"] else last_plain
         last_style = st if h["style"] else last_style
-        keys[v] = (p, last_style, v)
+        keys[v] = (last_plain, last_style, v)
     return max(hist, key=lambda h: keys[h["version"]])
 
 
