@@ -59,10 +59,14 @@ and the export. When the time is short, stop testing and save the best workflow 
    customers exist, else `--vars '<call variables>'`. Check the first line, the identity step and one route.
 
 8. **Test, when the prompt says that practice customers exist.** In the foreground:
-   `python kit/tools/run_cases.py <agent_id> --brief <A|B> --out work/<slot>/run1.json`. A run takes 3 to 11 minutes.
+   `python kit/tools/run_cases.py <agent_id> <the options from the prompt> --out work/<slot>/run1.json`. A run takes 3
+   to 11 minutes.
    Read every FAIL line, then `python lib/analyze_call.py --run work/<slot>/run1.json` for the events of the failed
    calls. Find the cause in the workflow (a route that did not fire, a missing rule, a wrong number), fix it in
    `make.py`, check, save, test again. Fix causes, not one customer: the scored customers are different people.
+   When every customer passes and at least 8 minutes are left, run once more with `--style in_words` or
+   `--style pieces` (amounts and dates in words, numbers in two parts): the scored customers talk like that. A
+   customer that passes only sometimes is a failure: the score needs three passes out of three.
 
 9. **Coverage.** Write `work/<slot>/coverage.md`: for each ledger rule, the node, route, tool or code that carries
    it. Fix every rule without a place. Then save again.

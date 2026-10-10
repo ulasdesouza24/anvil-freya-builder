@@ -24,6 +24,15 @@ KIT = pathlib.Path(os.environ.get("KIT", HERE / "kit")).resolve()
 sys.path.insert(0, str(KIT))
 
 
+# What the builder may test on. A later brief builds on the earlier ones, so a build of Brief B is also tested on the
+# single-product customers of Brief A: the scored customers have one to three products.
+PRACTICE = {
+    "A": "run them with `--brief A`",
+    "B": "run all of them (no --brief option): the customers of Brief A must pass too, because Brief B builds on it",
+    "none": "none exist for this brief: do not run kit/tools/run_cases.py",
+}
+
+
 class Trace:
     """The trace that the rules ask for: plain text, one event per line, and the full message log next to it."""
 
@@ -114,7 +123,8 @@ async def run_builder(args, trace):
     prompt = (
         f"Use the build-freya-agent skill. Build the phone agent for these brief files, in this order: {' '.join(briefs)}.\n"
         f"Tool API file: {api_file.relative_to(HERE)}.\nSlot: {args.slot}.\n"
-        f"Practice customers: {'run them with --brief ' + args.test if args.test != 'none' else 'none exist for this brief: do not run tools/run_cases.py'}.\n"
+        f"Practice customers: {PRACTICE[args.test]}.\n"
+        "Write all your messages, files and comments in English: they are part of the trace that we submit.\n"
         f"Kit folder: {KIT.relative_to(HERE) if KIT.is_relative_to(HERE) else KIT}. Work only inside the builder folder.\nTime budget: you must be done before the Unix time {int(deadline)} "
         f"({args.minutes} minutes). Check the time with `date +%s` before you start a test."
     )
