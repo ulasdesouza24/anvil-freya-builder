@@ -3,3 +3,4 @@ traces/
 out/
 .freya-agents.json
 __pycache__/
+kit/

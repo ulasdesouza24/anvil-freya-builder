@@ -9,7 +9,7 @@ route_evaluated, error). The route event has the result of every condition and t
 """
 import json, os, sys
 
-KIT = os.environ.get("KIT", os.path.expanduser("~/Desktop/freya-kit/build-the-builder"))
+KIT = os.environ.get("KIT", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "kit"))
 sys.path.insert(0, KIT)
 
 
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     want = a[a.index("--vars") + 1].split(",") if "--vars" in a else []
     if a and a[0] == "--run":
         run = json.load(open(a[1]))
-        rows = run.get("rows") or run.get("results") or run
+        rows = run.get("all_rows") or run.get("rows") or run.get("results") or run
         for r in rows if isinstance(rows, list) else []:
             if r.get("pass") or not r.get("call_id"):
                 continue

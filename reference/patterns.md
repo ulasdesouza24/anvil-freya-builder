@@ -58,6 +58,21 @@ Merge or split stages when the brief needs it. A stage with strict rules of its 
   call.
 - Never let the model invent an id. Ids come from tool results: show them in the facts block.
 
+## Hooks: code around each tool call
+
+- A `pre_process_code` hook can fix what the model filled in before the request goes out: `config["body"]` is the
+  request body. Use it to normalize values: a date said in words to `YYYY-MM-DD` (read a date of numbers only in the
+  order that the brief gives), spoken digits to digits, a time to `HH:MM`, an amount to a number.
+- A close guard: a `pre_process_code` hook on the close tool sets the outcome and the reason from what the tools did
+  (`vars` holds `<tool>_response.data.*` of earlier calls). For example, a recorded promise means the promise outcome
+  unless a later transfer replaces it, and an ended identity check means its own outcome. The model picks the
+  outcome in words, the guard makes the ledger right. Write the guard from the brief's outcome table.
+- A `post_process_code` hook can count in `vars` (for example the failures of a write tool) and give a different
+  `what_to_do_next` the second time: "try once more" versus "say that it failed and close". Do not leave a retry
+  count to the model.
+- Say what to do in the same message: "thank the customer, say goodbye, and in the same message call the close tool".
+  A model that waits for the next user turn after a result can lose the turn.
+
 ## Routes
 
 - Route on tool results and extracted enums with `equals`, `greater_than`, `is_set`. Test booleans as both "true"

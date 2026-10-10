@@ -16,10 +16,11 @@ log is traces/<start>-<slot>.jsonl.
 
 Needs FREYA_API_KEY and FREYA_BANK_TEAM_KEY (source the kit's env.sh), and a Claude login.
 """
-import argparse, asyncio, dataclasses, json, os, pathlib, sys, time
+import argparse, asyncio, dataclasses, json, os, pathlib, shutil, sys, time
 
 HERE = pathlib.Path(__file__).resolve().parent
-KIT = pathlib.Path(os.environ.get("KIT", os.path.expanduser("~/Desktop/freya-kit/build-the-builder"))).resolve()
+# The public files of the hackathon kit, copied by setup_kit.sh. The builder works only inside its own folder.
+KIT = pathlib.Path(os.environ.get("KIT", HERE / "kit")).resolve()
 sys.path.insert(0, str(KIT))
 
 
@@ -89,7 +90,6 @@ async def run_builder(args, trace):
         allowed_tools=["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
         permission_mode="dontAsk",
         max_turns=200,
-        add_dirs=[str(KIT)],
         env={
             "BASH_DEFAULT_TIMEOUT_MS": "900000",
             "BASH_MAX_TIMEOUT_MS": "1200000",
@@ -98,12 +98,24 @@ async def run_builder(args, trace):
             "BUILD_DEADLINE": str(int(deadline)),
         },
     )
-    briefs = [str(pathlib.Path(b).resolve()) for b in args.briefs]
+    # The inputs go into the work folder: the builder reads nothing outside its own folder.
+    inp = HERE / "work" / args.slot / "input"
+    if inp.exists():
+        shutil.rmtree(inp)
+    inp.mkdir(parents=True)
+    briefs = []
+    for i, b in enumerate(args.briefs, 1):
+        dst = inp / f"{i}-{pathlib.Path(b).name}"
+        shutil.copy(b, dst)
+        briefs.append(str(dst.relative_to(HERE)))
+    api_file = inp / "openapi.json"
+    shutil.copy(args.openapi, api_file)
+    trace.line("input", f"briefs {briefs}, tool API {api_file.relative_to(HERE)}")
     prompt = (
         f"Use the build-freya-agent skill. Build the phone agent for these brief files, in this order: {' '.join(briefs)}.\n"
-        f"Tool API file: {pathlib.Path(args.openapi).resolve()}.\nSlot: {args.slot}.\n"
+        f"Tool API file: {api_file.relative_to(HERE)}.\nSlot: {args.slot}.\n"
         f"Practice customers: {'run them with --brief ' + args.test if args.test != 'none' else 'none exist for this brief: do not run tools/run_cases.py'}.\n"
-        f"Kit folder: {KIT}.\nTime budget: you must be done before the Unix time {int(deadline)} "
+        f"Kit folder: {KIT.relative_to(HERE) if KIT.is_relative_to(HERE) else KIT}. Work only inside the builder folder.\nTime budget: you must be done before the Unix time {int(deadline)} "
         f"({args.minutes} minutes). Check the time with `date +%s` before you start a test."
     )
     trace.line("start", f"briefs={args.briefs} openapi={args.openapi} slot={args.slot} test={args.test} model={args.model} budget={args.minutes}min")
@@ -144,7 +156,7 @@ def finish(args, trace):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("briefs", nargs="+")
-    ap.add_argument("--openapi", default=str(KIT / "tools" / "openapi.json"))
+    ap.add_argument("--openapi", required=True, help="the tool API file that comes with the brief")
     ap.add_argument("--slot")
     ap.add_argument("--test", choices=["A", "B", "none"], default="none")
     ap.add_argument("--minutes", type=float, default=28)

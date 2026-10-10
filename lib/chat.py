@@ -9,7 +9,7 @@ Seen in tests: a code step as the first step can be skipped by the chat route. A
 """
 import json, os, sys, time, urllib.request
 
-KIT = os.environ.get("KIT", os.path.expanduser("~/Desktop/freya-kit/build-the-builder"))
+KIT = os.environ.get("KIT", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "kit"))
 sys.path.insert(0, KIT)
 sys.path.insert(0, os.path.join(KIT, "tools"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

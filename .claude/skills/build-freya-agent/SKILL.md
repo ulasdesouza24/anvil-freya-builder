@@ -9,7 +9,9 @@ You are a builder. A program will score the phone agent that you create on custo
 times each, on several calendar days. A customer counts only when all three calls pass. So build an agent that is
 right every time: put rules in code and routes, not only in prompts.
 
-Use only what the given brief files and the given tool API file say. A later brief file builds on the earlier ones.
+Work only inside the builder folder: the brief files and the tool API file in `work/<slot>/input/`, the kit copy in
+`kit/`, the helpers in `lib/`, the patterns in `reference/`. Never read files outside it, and never read the output
+of another builder. Use only what the given brief files and the given tool API file say. A later brief file builds on the earlier ones.
 Never use a rule, value or name that the brief does not give. The brief can be a clean specification, or raw bank
 material (a mail, a policy extract, a memo that changes it, a code list). With raw material, the newest memo wins
 over the policy text that it changes.
@@ -24,8 +26,8 @@ and the export. When the time is short, stop testing and save the best workflow 
 
 ## Steps
 
-1. **Read.** The brief files, the tool API file, then `$KIT/docs/workflow-format.md` and `$KIT/docs/tools-and-code.md`
-   (read both fully the first time). Skim `$KIT/examples/base-agent.json` for the JSON shape only.
+1. **Read.** The brief files, the tool API file, then `kit/docs/workflow-format.md` and `kit/docs/tools-and-code.md`
+   (read both fully the first time). Skim `kit/examples/base-agent.json` for the JSON shape only.
 
 2. **Rule ledger.** Write `work/<slot>/rules.md`: every rule of the brief as one numbered line, in the brief's words,
    plus every table (bands, deadlines, outcomes, codes, holidays) copied exactly. Include the call variables and what
@@ -48,16 +50,16 @@ and the export. When the time is short, stop testing and save the best workflow 
    tool API) before you put it in the workflow. Print the values and check them against the brief by hand.
 
 5. **Check.** `python lib/check_workflow.py work/<slot>/workflow.json --openapi <tool API file>` must give 0 errors.
-   Then a dry run: `python -c "import sys,json; sys.path.insert(0,'$KIT'); import freya; print(freya.validate_workflow('<slot>', json.load(open('work/<slot>/workflow.json'))))"`.
+   Then a dry run: `python -c "import sys,json; sys.path.insert(0,'kit'); import freya; print(freya.validate_workflow('<slot>', json.load(open('work/<slot>/workflow.json'))))"`.
 
 6. **Save and publish.** From the builder root (this keeps the slot's ids in `.freya-agents.json`):
-   `python -c "import sys,json; sys.path.insert(0,'$KIT'); import freya; print(json.dumps(freya.save_workflow('<slot>', json.load(open('work/<slot>/workflow.json')))))"`.
+   `python -c "import sys,json; sys.path.insert(0,'kit'); import freya; print(json.dumps(freya.save_workflow('<slot>', json.load(open('work/<slot>/workflow.json')))))"`.
 
 7. **Talk to it.** `python lib/chat.py <workflow_id> --case <a practice case id> "<user turn>" ...` when practice
    customers exist, else `--vars '<call variables>'`. Check the first line, the identity step and one route.
 
 8. **Test, when the prompt says that practice customers exist.** In the foreground:
-   `python $KIT/tools/run_cases.py <agent_id> --brief <A|B> --out work/<slot>/run1.json`. A run takes 3 to 11 minutes.
+   `python kit/tools/run_cases.py <agent_id> --brief <A|B> --out work/<slot>/run1.json`. A run takes 3 to 11 minutes.
    Read every FAIL line, then `python lib/analyze_call.py --run work/<slot>/run1.json` for the events of the failed
    calls. Find the cause in the workflow (a route that did not fire, a missing rule, a wrong number), fix it in
    `make.py`, check, save, test again. Fix causes, not one customer: the scored customers are different people.
