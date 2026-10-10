@@ -86,14 +86,49 @@ def slot_state(slot):
             "runs": runs, "live": live, "files": sorted(p.name for p in d.glob("*") if p.is_file())}
 
 
+PLAN = ["build rh-a", "a-reps3"] + [f"a-{s}" for s in ("pieces", "corrects", "talkative", "asks_back", "in_words")] + \
+       ["build rh-b", "b-reps3", "build rh-raw", "raw-reps3"]
+
+
+def running_step():
+    """The rehearsal step that runs now, from the process list."""
+    import subprocess
+
+    ps = subprocess.run(["ps", "-axo", "command"], capture_output=True, text=True).stdout.splitlines()
+    for l in ps:
+        if "run_cases.py" in l and "rehearsal-" in l:
+            m = re.search(r"--out \S*/([\w-]+)\.json", l)
+            return m.group(1) if m else "a test"
+        if "build.py" in l and "--slot rh-" in l:
+            m = re.search(r"--slot (rh-\w+)", l)
+            return "build " + (m.group(1) if m else "")
+    return None
+
+
 def rehearsal():
-    dirs = sorted(glob.glob(str(ROOT / "results" / "rehearsal-*")))
+    dirs = sorted(p for p in glob.glob(str(ROOT / "results" / "rehearsal-*")) if os.path.isdir(p))
     if not dirs:
         return None
     d = pathlib.Path(dirs[-1])
     prog = (d / "progress.log").read_text().splitlines() if (d / "progress.log").exists() else []
     summ = (d / "summary.md").read_text() if (d / "summary.md").exists() else ""
-    return {"name": d.name, "progress": prog[-40:], "summary": summ}
+    done = {}
+    for l in prog:
+        m = re.match(r"(\d\d:\d\d:\d\d) ([\w-]+): (\d+/\d+)(.*)", l)
+        if m:
+            done[m.group(2)] = {"at": m.group(1), "score": m.group(3), "detail": m.group(4).strip()}
+        m = re.match(r"(\d\d:\d\d:\d\d) build (rh-\w+)-\d+-\d+ done in (\d+) s.*best (.*)$", l)
+        if m:
+            done["build " + m.group(2)] = {"at": m.group(1), "score": f"{int(m.group(3)) // 60} min", "detail": "best " + m.group(4)}
+    now = running_step()
+    steps = []
+    for name in PLAN:
+        st = "done" if name in done else ("running" if now and (now == name or (now.startswith("build") and now.startswith(name))) else "waiting")
+        steps.append({"name": name, "state": st, **done.get(name, {})})
+    live = ""
+    if now and not now.startswith("build") and (d / f"{now}.log").exists():
+        live = "\n".join((d / f"{now}.log").read_text(errors="replace").splitlines()[-8:])
+    return {"name": d.name, "progress": prog[-40:], "summary": summ, "steps": steps, "now": now, "live": live}
 
 
 def state(selected=None):
@@ -134,16 +169,23 @@ main{display:grid;grid-template-columns:280px 1fr 360px;gap:16px;padding:16px 20
 pre{background:var(--code);padding:10px;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;margin:0}
 table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}
 .stats{display:flex;gap:18px;flex-wrap:wrap}.stats div{min-width:90px}
+.steps{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.step{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.step .sn{font-size:12px;color:var(--mute)}.step .sv{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.step .sd{font-size:11px;color:var(--mute);overflow-wrap:anywhere;max-height:4.2em;overflow:hidden}
+.st-done{border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}.st-running{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 8%,transparent)}
+.st-running .sv{color:var(--acc)}.st-waiting{opacity:.55}
 </style></head><body>
 <header><h1>Builder trace</h1><span class="mute" id="now"></span><span class="grow"></span><span class="mute">refreshes every 4 s</span></header>
 <main>
+ <div style="grid-column:1/-1" class="card"><h2>Rehearsal <span id="rehname" class="mute"></span></h2><div id="reh"></div></div>
  <div><div class="card"><h2>Builds</h2><div id="builds"></div></div>
       <div class="card"><h2>Freya simulations</h2><div id="queue"></div></div></div>
  <div><div class="card" id="head"></div><div class="card"><h2>Events (newest first)</h2><div id="events"></div></div></div>
  <div><div class="card"><h2>Running test</h2><pre id="live">-</pre></div>
       <div class="card"><h2>Last test, by customer</h2><div id="custs"></div></div>
       <div class="card"><h2>Tested versions</h2><div id="versions"></div></div>
-      <div class="card"><h2>Rehearsal</h2><div id="reh"></div></div></div>
+      </div>
 </main>
 <script>
 let sel=null;const $=id=>document.getElementById(id);
@@ -164,7 +206,8 @@ async function tick(){
  const r=(s.runs||[]).slice(-1)[0];
  $("custs").innerHTML=r?`<div class="mute">${esc(r.file)}: <b>${r.passed}/${r.total}</b> in ${r.seconds} s</div>`+r.customers.map(x=>`<div class="cust"><span class="dot ${x.pass?"ok":"bad"}"></span><div><b>${esc(x.id)}</b>${x.pass?"":`<div class="mute">${esc(x.why)}</div>`}</div></div>`).join(""):'<span class="mute">no test yet</span>';
  $("versions").innerHTML=(s.versions||[]).length?`<table><tr><th>v</th><th>plain</th><th>style</th></tr>${s.versions.map(v=>`<tr><td>${v.version}</td><td>${v.plain.map(p=>p[0]+"/"+p[1]).join(", ")||"-"}</td><td>${v.style.map(p=>p[0]+" "+p[1]+"/"+p[2]).join(", ")||"-"}</td></tr>`).join("")}</table>`:'<span class="mute">none</span>';
- const h=d.rehearsal;$("reh").innerHTML=h?`<div class="mute">${esc(h.name)}</div><pre>${esc((h.summary||h.progress.slice(-15).join("\n"))||"-")}</pre>`:'<span class="mute">none</span>';
+ const h=d.rehearsal;$("rehname").textContent=h?h.name:"";
+ $("reh").innerHTML=h?`<div class="steps">${h.steps.map(s=>`<div class="step st-${s.state}"><div class="sn">${esc(s.name)}</div><div class="sv">${s.state==="done"?esc(s.score):s.state==="running"?"running":"-"}</div>${s.detail?`<div class="sd">${esc(s.detail.replace(/[{}']/g,""))}</div>`:""}</div>`).join("")}</div>${h.live?`<pre style="margin-top:10px">${esc(h.live)}</pre>`:""}`:'<span class="mute">none</span>';
 }
 tick();setInterval(tick,4000);
 </script></body></html>"""

@@ -63,8 +63,9 @@ def run_cases(out, kit, probe_workflow, agent, brief, name, reps=1, style=None):
         wait_up(out, kit, probe_workflow)
         dst = out / f"{name}.json"
         cmd = [sys.executable, "kit/tools/run_cases.py", agent, "--brief", brief, "--reps", str(reps), "--out", str(dst)] + (["--style", style] if style else [])
-        r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
-        (out / f"{name}.log").write_text(r.stdout + r.stderr)
+        # The log is written while the run goes on, so the trace screen can show it.
+        with open(out / f"{name}.log", "w") as f:
+            subprocess.run(cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, text=True)
         res = json.loads(dst.read_text()) if dst.exists() else {}
         if res and not snapshot.outage(res):
             per = {row["id"]: f"{row['passes']}/{row['runs']}" for row in res.get("final", [])}
