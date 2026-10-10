@@ -45,6 +45,13 @@ words, ask back, and talk about other things. Write these rules into the prompts
   example all four digits, a full date with the year). Write this into the tool description and the node prompt.
 - A partial value: keep the part that the customer gave and ask only for the missing part ("And the year?"). Do not
   ask for the whole value again: a customer who talks in pieces repeats the same piece.
+- Join the parts of a value in the order that the customer said them: the first part first. "Forty four" then "one
+  zero" is 4410, never 1044. Seen in a test: the model put the later part first three times and used up every try
+  of the security check. Write this into the description of every field that can come in parts.
+- Ask for one value at a time, and propose the full offer (amount and date) as one yes-or-no question. "Can you pay
+  300 dollars? If so, on what date?" asks two things: the reply "30" (the 30th) was taken as 30 dollars, the agent
+  dropped to the floor, and the promise was 90 dollars instead of 300. A bare number that could be a day or an
+  amount is not clear: ask what it means. Never lower an amount because of an unclear reply.
 - A number said over two turns ("five..." then "forty") is one number (540). A reply that ends in "..." or stops in
   the middle is not finished: wait for the rest or ask for it. Never act on a part of a number.
 - A self-correction ("the 21st, sorry, the 20th") means the corrected value.
