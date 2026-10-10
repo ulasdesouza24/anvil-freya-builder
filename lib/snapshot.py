@@ -22,10 +22,19 @@ def load(slot):
     return json.loads(p.read_text()) if p.exists() else []
 
 
+def outage(run):
+    """A run where no customer got one tool call and none passed: the platform was down, not the agent."""
+    rows = run.get("all_rows") or run.get("rows") or []
+    rows = [x for r in rows for x in (r if isinstance(r, list) else [r])]
+    return bool(rows) and not run.get("passed") and all(not r.get("tools") for r in rows if isinstance(r, dict))
+
+
 def record(slot, run_file, style=None):
     hist = load(slot)
     wf = ROOT / "work" / slot / "workflow.json"
     run = json.loads(pathlib.Path(run_file).read_text())
+    if outage(run):
+        return None
     text = wf.read_text()
     # A test of the same workflow as the last snapshot adds to that version.
     same = next((h for h in reversed(hist) if (ROOT / h["file"]).exists() and (ROOT / h["file"]).read_text() == text), None)
@@ -60,6 +69,8 @@ if __name__ == "__main__":
     if len(a) >= 3 and a[0] == "record":
         style = a[a.index("--style") + 1] if "--style" in a else None
         e = record(a[1], a[2], style)
+        if e is None:
+            sys.exit("not recorded: no customer got a tool call, so the platform was down. Do not change the workflow: run lib/platform_check.py, wait, and test again.")
         print(f"version {e['version']}: plain {[(r['passed'], r['total']) for r in e['plain']]} style {[(r['passed'], r['total']) for r in e['style']]}")
     elif len(a) >= 2 and a[0] == "best":
         b = best(a[1])
