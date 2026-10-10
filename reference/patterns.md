@@ -91,6 +91,12 @@ Merge or split stages when the brief needs it. A stage with strict rules of its 
 - Copy fixed sentences of the brief word for word into the prompt and tell the model to say them exactly ("say this
   sentence: ..."). The judge checks them.
 - Never name nodes or describe routing in a prompt.
+- Counted offers (persuasion attempts, a floor that may be offered once): a question of the customer gets an answer
+  with the fact only. Do not end the answer with the offer again ("Would you be able to pay that today?"). The judge
+  counts an offer said again as a new offer. Write in the prompt: "When the customer asks a question, answer it and
+  wait. Do not repeat an offer."
+- After a step that passes (a verified answer), say what comes next in the same message. A bare "Thank you." makes
+  the customer ask what the call is about.
 
 ## Honesty and closing
 

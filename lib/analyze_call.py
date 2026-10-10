@@ -72,7 +72,9 @@ if __name__ == "__main__":
     if a and a[0] == "--run":
         run = json.load(open(a[1]))
         rows = run.get("all_rows") or run.get("rows") or run.get("results") or run
-        for r in rows if isinstance(rows, list) else []:
+        # With --reps, all_rows is one list of rows for each run.
+        rows = [x for r in rows for x in (r if isinstance(r, list) else [r])] if isinstance(rows, list) else []
+        for r in rows:
             if r.get("pass") or not r.get("call_id"):
                 continue
             print(f"\n===== {r.get('id')}: {' | '.join(r.get('failed', []))[:400]}")
