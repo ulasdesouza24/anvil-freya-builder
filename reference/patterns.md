@@ -134,6 +134,11 @@ words, ask back, and talk about other things. Write these rules into the prompts
 - A `post_process_code` hook can count in `vars` (for example the failures of a write tool) and give a different
   `what_to_do_next` the second time: "try once more" versus "say that it failed and close". Do not leave a retry
   count to the model.
+- Several items, one write each (a promise per product): the post-hook of the write tool keeps the written item ids
+  in `vars` and names the open ones in `what_to_do_next`: "Written: p1, p3. Still open: p2 (personal loan). Call the
+  write tool for p2 now, before anything else." The account tool's result vars give the full list. The close guard
+  reads the same list. Seen in a test: the model wrote two of three confirmed promises, closed the call, and called
+  the write tool after the close.
 - Say what to do in the same message: "thank the customer, say goodbye, and in the same message call the close tool".
   A model that waits for the next user turn after a result can lose the turn.
 
