@@ -19,7 +19,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     up = True
-    if len(sys.argv) > 2:
+    if len(sys.argv) > 2 and sys.argv[2] != "--tool-only":
         import urllib.request
 
         oa = json.load(open(sys.argv[2]))
@@ -34,6 +34,9 @@ if __name__ == "__main__":
         # An unknown customer gets 404 with a JSON body: the service is up. Only a 5xx or no answer means down.
         up = isinstance(code, int) and code < 500
         print(("TOOL API UP" if up else "TOOL API DOWN") + f": {url} -> {code}")
+    # Seen on 2026-10-10: the chat route gave 504 while simulations ran. --tool-only skips the chat check.
+    if "--tool-only" in sys.argv:
+        sys.exit(0 if up else 1)
     try:
         r = freya.api("POST", "/api/v2/chat/message", {"workflowId": sys.argv[1], "message": "Hello?", "customerVariables": {"customer_id": "c_platform_check", "first_name": "Test", "last_name": "Check", "title": "Mr", "now": "2026-10-14T11:00"}})
         if r.get("callId"):

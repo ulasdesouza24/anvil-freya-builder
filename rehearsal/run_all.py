@@ -22,7 +22,8 @@ def log(out, text):
 
 
 def services_up(kit, probe_workflow):
-    r = subprocess.run([sys.executable, "lib/platform_check.py", probe_workflow, str(kit / "tools" / "openapi.json")], cwd=ROOT, capture_output=True, text=True)
+    # Simulations do not need the chat route (it gave 504 while simulations ran): check the tool API only.
+    r = subprocess.run([sys.executable, "lib/platform_check.py", probe_workflow, str(kit / "tools" / "openapi.json"), "--tool-only"], cwd=ROOT, capture_output=True, text=True)
     return r.returncode == 0, r.stdout.strip().replace("\n", " | ")
 
 
