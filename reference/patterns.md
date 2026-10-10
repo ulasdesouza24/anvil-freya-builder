@@ -131,6 +131,12 @@ words, ask back, and talk about other things. Write these rules into the prompts
   (`vars` holds `<tool>_response.data.*` of earlier calls). For example, a recorded promise means the promise outcome
   unless a later transfer replaces it, and an ended identity check means its own outcome. The model picks the
   outcome in words, the guard makes the ledger right. Write the guard from the brief's outcome table.
+  The model can call a write tool and the close tool in the same turn. Then the guard runs before the write's
+  result exists. Seen in a test, 3 runs of 3: a transfer and a close together, closed as a refusal. So the guard
+  reads the requests too: the pre-hook of every write tool sets `<tool>_requested` and `<tool>_request__<field>`
+  (for example `transfer_to_agent_request__queue`) at the time of the call. A transfer that was requested and did
+  not fail counts as a transfer. Also write in the close tool's description and in the prompt: "Call this tool
+  alone, after the results of all other tools."
 - A `post_process_code` hook can count in `vars` (for example the failures of a write tool) and give a different
   `what_to_do_next` the second time: "try once more" versus "say that it failed and close". Do not leave a retry
   count to the model.

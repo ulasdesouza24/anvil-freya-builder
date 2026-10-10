@@ -7,6 +7,9 @@ For each POST path it writes one `api_call` tool, as docs/tools-and-code.md says
 - every other body field is a leaf under body.properties with its type, description and enum. Its default is a
   placeholder that no variable has (`{{<tool>__<field>}}`), so the model fills it.
 - writes get maxRetries 0 (a retried write can record a thing two times), reads get 2.
+- a pre-hook of a write tool writes its request as variables (`<tool>_request__<field>`) before the call. A close
+  guard reads them: the model can call a write tool and the close tool in the same turn, and then the close guard
+  runs before the result of the write exists (seen: a transfer and a close together, closed as a refusal).
 - a post-hook removes the headers and adds `what_to_do_next` to the result: the agent model often says nothing
   after a bare result, or reads a failure as a success. The text for each tool comes from --guide (written by the
   builder from the brief), with a generic text for a failure.
@@ -58,6 +61,19 @@ try:
                     g = digits(v)
                     if g:
                         b[f] = g
+except Exception:
+    pass
+'''
+
+
+# For a write tool: its request (after the normalization above) as variables, at the time of the call.
+REQUEST_HOOK = r'''
+try:
+    b = config.get("body")
+    if isinstance(b, dict):
+        vars["__TOOL___requested"] = "true"
+        for k, v in b.items():
+            vars["__TOOL___request__" + str(k)] = str(v)
 except Exception:
     pass
 '''
@@ -164,9 +180,15 @@ def tool_for(path, op, server, guide):
     }
     # Spoken values (amounts and dates in words, digits as words) become the form of the API before the call.
     plan = {k: v for k, v in {**normalize_plan(props), **g.get("normalize", {})}.items() if v and v != "none"}
+    pre = ""
     if plan:
-        tool["pre_process_code"] = spoken.SOURCE.strip() + "\n" + PRE_HOOK.replace("__PLAN__", repr(plan)).replace("__ORDER__", repr(guide.get("_date_order", "DMY"))).strip() + "\n"
-        for code in (tool["pre_process_code"], tool["post_process_code"]):
+        pre = spoken.SOURCE.strip() + "\n" + PRE_HOOK.replace("__PLAN__", repr(plan)).replace("__ORDER__", repr(guide.get("_date_order", "DMY"))).strip() + "\n"
+    if write:
+        pre += REQUEST_HOOK.replace("__TOOL__", name).strip() + "\n"
+    if pre:
+        tool["pre_process_code"] = pre
+    for code in (tool.get("pre_process_code", ""), tool["post_process_code"]):
+        if code:
             if "{{" in code or "}}" in code:
                 raise ValueError(f"the hook of {name} contains '{{{{' or '}}}}'")
             compile(code, name, "exec")
