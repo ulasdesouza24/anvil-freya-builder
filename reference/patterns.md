@@ -50,6 +50,13 @@ words, ask back, and talk about other things. Write these rules into the prompts
 - A self-correction ("the 21st, sorry, the 20th") means the corrected value.
 - A cut-off or unclear reply is not a refusal and not a confirmation. A refusal counts only when the customer says it
   clearly. Ask once more.
+- A long, chatty message can hold the one fact that decides the stage in its middle: a date, an amount, a hardship,
+  a third party, a refusal. Read the whole message. Write the extraction field descriptions so: "the customer may say
+  this inside a longer story; take it from any part of the message". Seen in one test run of talkative customers
+  (7/10): a date of the customer's own inside a story was taken as a refusal, a hardship inside small talk was missed
+  and persuasion went on, and stalling after two wrong security answers was closed as "declined".
+- Small talk, a story, a question back or a stall is not a refusal and not an answer. Answer it in one sentence, then
+  ask the same question again. A refusal counts only when the customer says no to the question itself.
 - When the brief says that the agent proposes the values (an amount, a date), the agent never asks the customer for
   them. When the customer accepts a date without an amount, the amount is the one of the current offer.
 - An objection changes only the value that the customer objects to. A date that is too late gets a new date (for
