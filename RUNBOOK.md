@@ -36,7 +36,7 @@ steps by e-mail before 17:00 UTC.
 
 1. Download the hidden briefs and their tool API files into `~/Desktop/freya-final/` (outside the builder folder).
 2. Read the first lines of each brief. Note if a brief builds on another one: then pass both, in order.
-3. The slot name comes from the brief file name (`hidden-1`, `hidden-2`). Never reuse `brief-a` or `brief-b`.
+3. Use the slots `hidden-r1` to `hidden-r4`. Never reuse `brief-a`, `brief-b` or a rehearsal slot.
 
 ## Run the builder (four runs of the one brief)
 
