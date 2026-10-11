@@ -37,17 +37,47 @@ comes with its own tool API file. Freya sends the submission steps by e-mail bef
 2. Read the first lines of each brief. Note if a brief builds on another one: then pass both, in order.
 3. The slot name comes from the brief file name (`hidden-1`, `hidden-2`). Never reuse `brief-a` or `brief-b`.
 
-## Run the builder (once for each brief)
+## Run the builder (two runs for each brief)
+
+The same builder gives drafts of different quality: without tests, raw Brief A scored 7, 8, 4 and 7 of 10 on the
+same builder logic. So run the builder two times on each brief and submit the better run. The rules allow this:
+"You may run it more than once and submit the phone agent of one run, with that run's trace."
+
+Give each run its own slot: `<brief>-r1` and `<brief>-r2`.
 
 ```bash
-python3 build.py ~/Desktop/freya-final/hidden-1.md ~/Desktop/freya-final/hidden-1.openapi.json 2>&1 | tee traces/hidden-1.console.log
+python3 build.py ~/Desktop/freya-final/hidden-1.md ~/Desktop/freya-final/hidden-1.openapi.json --slot hidden-1-r1 2>&1 | tee traces/hidden-1-r1.console.log
 ```
 
-The slot is the name of the brief file (`hidden-1`). The default is `--test none` and 28 minutes.
+The default is `--test none` and 28 minutes.
 
 - `--test none`: the bank mock has no practice customers for a hidden brief.
-- Run the briefs one after the other, not at the same time: they share the Claude login and the simulation queue.
-- Watch the console. A run ends with a `created ... steps=N tools=M` line and an `export submission/hidden-1.workflow.json` line.
+- Run one build at a time: the builds share the Claude login.
+- Order: hidden-1-r1, hidden-2-r1, hidden-1-r2, hidden-2-r2. So each brief has one finished run early.
+- Watch the console. A run ends with a `created ... steps=N tools=M` line and an `export submission/<slot>.workflow.json` line.
+
+## Choose the run to submit
+
+1. Compare the two runs of a brief:
+
+   ```bash
+   python lib/compare_runs.py hidden-1-r1 hidden-1-r2 --openapi ~/Desktop/freya-final/hidden-1.openapi.json
+   ```
+
+2. Drop a run that has no export, an error line in the trace, or more static check errors than the other run.
+3. Of the runs that are left, take the run with fewer open review items (`open` in the review line).
+4. Talk to each run that is left once, with the brief's call variables:
+   `python lib/chat.py <workflow_id> --vars '<call variables>' "Hello?"`. Drop a run whose first line breaks the
+   brief's opening rule.
+5. If both runs are still equal, take the run with the shorter build time (equal scores are ranked by it).
+6. Copy the chosen run to the submission names, without a change to the files:
+
+   ```bash
+   cp submission/hidden-1-r2.workflow.json submission/hidden-1.workflow.json
+   cp submission/hidden-1-r2.trace.log submission/hidden-1.trace.log
+   ```
+
+   Write in `submission/CHOICE.md` which run you chose for each brief and why (one line each).
 
 ## After each run
 
@@ -80,8 +110,8 @@ took 6 to 11 seconds and simulations hung.
 
 ## Submit (before 20:00 UTC)
 
-1. Check that `submission/` holds only the hidden-brief files: `ls submission/`. Commit `submission/` (the two
-   workflows and the two traces) and push to GitHub.
+1. Check that `submission/` holds only the hidden-brief files: the chosen `hidden-1.*` and `hidden-2.*`, the files of
+   each run (`hidden-1-r1.*`, ...) and `CHOICE.md`. Commit `submission/` and push to GitHub.
 2. Send the form to the address in the kit e-mail:
 
    ```json
@@ -99,12 +129,15 @@ took 6 to 11 seconds and simulations hung.
 
 ## Time plan
 
-| UTC | What |
-|---|---|
-| 17:00 | Download, read, slot names |
-| 17:10 | Builder run 1 (up to 30 minutes) |
-| 17:45 | Checks of run 1, builder run 2 |
-| 18:20 | Checks of run 2 |
-| 18:30 | Optional second runs, if a run was weak or crashed |
-| 19:30 | Submit everything |
-| 20:00 | Close |
+| UTC | Istanbul | What |
+|---|---|---|
+| 17:00 | 20:00 | Download, read, slot names |
+| 17:05 | 20:05 | hidden-1-r1 (up to 30 minutes) |
+| 17:35 | 20:35 | hidden-2-r1. Checks of hidden-1-r1 during the run |
+| 18:05 | 21:05 | hidden-1-r2. Checks of hidden-2-r1 during the run |
+| 18:35 | 21:35 | hidden-2-r2. Checks of hidden-1-r2 during the run |
+| 19:05 | 22:05 | Checks of hidden-2-r2. Choose the runs (see "Choose the run to submit") |
+| 19:20 | 22:20 | Commit, push, send the form |
+| 20:00 | 23:00 | Close |
+
+If a run crashes or Freya is down for long, skip the second runs: one finished run for each brief comes first.

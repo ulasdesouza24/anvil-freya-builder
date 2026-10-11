@@ -85,6 +85,8 @@ def main():
     ap.add_argument("--only", default="a,b,raw")
     ap.add_argument("--probe", default="ed036ff6-6c55-472d-9fa4-831b6afc7bb6", help="a workflow for the chat check")
     ap.add_argument("--raw-test", default="A", choices=["A", "none"], help="the practice customers of the raw build")
+    ap.add_argument("--a-test", default="A", choices=["A", "none"], help="the practice customers of the Brief A build")
+    ap.add_argument("--no-styles", action="store_true", help="skip the style runs of step a")
     ap.add_argument("--measure", help="an existing slot to measure again with its best tested version")
     ap.add_argument("--brief", default="A", help="the practice customers for --measure")
     ap.add_argument("--styles", default="", help="comma list of styles for --measure")
@@ -111,10 +113,10 @@ def main():
             summary[f"{a.measure} style {st}"] = run_cases(out, kit, a.probe, agent, a.brief, f"{a.measure}-{st}", style=st)
     if "a" in steps:
         wait_up(out, kit, a.probe)
-        agent, b = build(out, kit, f"rh-a-{stamp}", [kit / "briefs" / "brief-a.md"], "A")
+        agent, b = build(out, kit, f"rh-a-{stamp}", [kit / "briefs" / "brief-a.md"], a.a_test)
         summary["A build"] = b
         summary["A 3 runs"] = run_cases(out, kit, a.probe, agent, "A", "a-reps3", reps=3)
-        for st in STYLES:
+        for st in ([] if a.no_styles else STYLES):
             summary[f"A style {st}"] = run_cases(out, kit, a.probe, agent, "A", f"a-{st}", style=st)
     if "b" in steps:
         wait_up(out, kit, a.probe)
