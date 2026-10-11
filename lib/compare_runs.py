@@ -20,7 +20,7 @@ def review_counts(slot):
         return None
     marks = {"OK": 0, "FIXED": 0, "N/A": 0, "open": 0}
     for line in p.read_text().splitlines():
-        m = re.match(r"\s*(?:[-*]\s*)?(?:\*\*)?(\d+)[.)]", line)
+        m = re.match(r"\s*(?:[-*]\s*)?(?:\*\*)?([A-Z]?\d+)[.):\s]", line)
         if not m:
             continue
         mark = next((k for k in ("FIXED", "N/A", "OK") if re.search(rf"\b{re.escape(k)}\b", line)), "open")

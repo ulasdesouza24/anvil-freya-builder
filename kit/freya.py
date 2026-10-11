@@ -25,7 +25,8 @@ def api(method, path, body=None, **params):
             break
         except urllib.error.HTTPError as e:
             text = e.read().decode()[:1500]
-            again = e.code in (502, 503) or (e.code in (504, 520, 522, 524) and method != "POST")
+            # A chat turn is never sent twice: after the call ends, Freya answers 502, and a second send runs the turn again.
+            again = "/chat/message" not in path and (e.code in (502, 503) or (e.code in (504, 520, 522, 524) and method != "POST"))
             if not again or time.time() - t0 > RETRY_SECONDS:
                 raise RuntimeError(f"{method} {path} -> {e.code}: {text}") from None
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
