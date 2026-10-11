@@ -57,8 +57,12 @@ The slot is the name of the brief file (`hidden-1`). The default is `--test none
    must give 0 errors.
 3. Talk to the agent once: `python lib/chat.py <workflow_id> --vars '<call variables of the brief>' "Hello?"`. The first
    line must follow the brief's opening rule.
-4. If the run crashed or the export is missing: find the cause in the trace, fix only the crash in the builder
-   (commit it with a message that says it is a crash fix), and run the builder again on that brief.
+4. If the trace says "the export failed" or "the finish step failed" (Freya gave 503 or 504 at the end): wait until
+   `python lib/platform_check.py <workflow_id>` says UP, then run `python3 build.py --export-only --slot <slot>`.
+   This publishes the best tested version and exports it, and adds its lines to the same trace. Do not run the
+   builder again for this.
+5. If the run crashed in another way or the export is missing: find the cause in the trace, fix only the crash in
+   the builder (commit it with a message that says it is a crash fix), and run the builder again on that brief.
 
 ## When the platform is down or slow
 

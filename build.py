@@ -51,11 +51,12 @@ class Trace:
 
     The text trace goes to traces/<start>-<slot>.log and to submission/<slot>.trace.log (the file to commit)."""
 
-    def __init__(self, slot):
+    def __init__(self, slot, append=False):
         stamp = time.strftime("%Y%m%d-%H%M%S")
         (HERE / "traces").mkdir(exist_ok=True)
         (HERE / "submission").mkdir(exist_ok=True)
-        self.texts = [(HERE / "traces" / f"{stamp}-{slot}.log").open("w"), (HERE / "submission" / f"{slot}.trace.log").open("w")]
+        # --export-only adds to the trace of the run that it finishes.
+        self.texts = [(HERE / "traces" / f"{stamp}-{slot}.log").open("w"), (HERE / "submission" / f"{slot}.trace.log").open("a" if append else "w")]
         self.jsonl = (HERE / "traces" / f"{stamp}-{slot}.jsonl").open("w")
         self.t0 = time.time()
         self.calls = 0
@@ -181,6 +182,19 @@ async def run_builder(args, trace):
         trace.line("timeout", "the time budget ended: the last saved workflow is the result")
 
 
+def retry(trace, what, fn, minutes=12):
+    """Freya gave 503 and 504 for minutes at a time (2026-10-10 and 2026-10-11). Try again for some minutes."""
+    t0 = time.time()
+    while True:
+        try:
+            return fn()
+        except Exception as e:
+            if time.time() - t0 > minutes * 60:
+                raise
+            trace.line("retry", f"{what}: {str(e)[:160]}. Next try in 20 s")
+            time.sleep(20)
+
+
 def finish(args, trace):
     """Export the workflow of the slot, as the submission needs it."""
     import freya
@@ -200,12 +214,16 @@ def finish(args, trace):
         trace.line("best", f"version {best['version']}: plain {[(r['passed'], r['total']) for r in best['plain']]} style {[(r['passed'], r['total']) for r in best['style']]}")
         best_text = (HERE / best["file"]).read_text()
         if not current.exists() or current.read_text() != best_text:
-            freya.save_workflow(args.slot, json.loads(best_text), state_file=str(HERE / ".freya-agents.json"))
+            retry(trace, "save the best version", lambda: freya.save_workflow(args.slot, json.loads(best_text), state_file=str(HERE / ".freya-agents.json")))
             current.write_text(best_text)
             trace.line("restore", f"the last version was worse or not tested: saved and published version {best['version']} again")
     out = HERE / "submission" / f"{args.slot}.workflow.json"
     out.parent.mkdir(exist_ok=True)
-    freya.export_workflow(ids["workflow_id"], str(out))
+    try:
+        retry(trace, "export", lambda: freya.export_workflow(ids["workflow_id"], str(out)))
+    except Exception as e:
+        trace.line("error", f"the export failed: {str(e)[:200]}. When Freya is up again, run: python3 build.py --export-only --slot {args.slot}")
+        return 1
     wf = json.loads(out.read_text()).get("workflow", {})
     nodes = wf.get("nodes") or {}
     tools = sorted({t.get("function", {}).get("name") for n in nodes.values() for t in (n.get("tools") or []) + (n.get("pre_actions") or [])} - {None})
@@ -217,13 +235,22 @@ def finish(args, trace):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("files", nargs="+", help="the brief file(s), in order, then the tool API file (.json)")
+    ap.add_argument("files", nargs="*", help="the brief file(s), in order, then the tool API file (.json)")
+    ap.add_argument("--export-only", action="store_true", help="only publish the best tested version and export it (after an outage at the end of a run)")
     ap.add_argument("--openapi", help="the tool API file, when it is not given as the last file")
     ap.add_argument("--slot")
     ap.add_argument("--test", choices=["A", "B", "none"], default="none")
     ap.add_argument("--minutes", type=float, default=28)
     ap.add_argument("--model", default=os.environ.get("BUILDER_MODEL", "claude-opus-5-5"))
     args = ap.parse_args()
+    if args.export_only:
+        if not args.slot:
+            sys.exit("give --slot")
+        trace = Trace(args.slot, append=True)
+        trace.line("start", f"export only, slot={args.slot}")
+        code = finish(args, trace)
+        trace.line("end", "export only")
+        sys.exit(code)
     args.briefs = [f for f in args.files if not f.endswith(".json")]
     jsons = [f for f in args.files if f.endswith(".json")]
     args.openapi = args.openapi or (jsons[-1] if jsons else None)
@@ -253,9 +280,17 @@ def main():
     signal.signal(signal.SIGTERM, stop_children)
     signal.signal(signal.SIGINT, stop_children)
     signal.signal(signal.SIGHUP, stop_children)
+    code = 1
     try:
-        asyncio.run(run_builder(args, trace))
-        code = finish(args, trace)
+        try:
+            asyncio.run(run_builder(args, trace))
+        except Exception as e:
+            # The builder session can end with an error (a lost connection). The saved workflow still gets exported.
+            trace.line("error", f"the builder session ended with an error: {str(e)[:200]}")
+        try:
+            code = finish(args, trace)
+        except Exception as e:
+            trace.line("error", f"the finish step failed: {str(e)[:200]}. When Freya is up again, run: python3 build.py --export-only --slot {args.slot}")
     finally:
         trace.line("end", f"{trace.calls} model calls, {time.time() - trace.t0:.0f} s")
     sys.exit(code)
