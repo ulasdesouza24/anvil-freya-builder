@@ -36,9 +36,11 @@ item that has no place. Then check, save, and talk to the agent again.
 
 ## C. Counted offers
 
-9. **Each counted offer has a count in code or a written plan in the facts block** (an offer that the brief allows
-   once, persuasion attempts per item). The prompt says: "Each offer is made once. When the customer asks a
-   question, answer it and wait. Do not repeat an offer." Seen: the floor offered three times.
+9. **Each once-only offer and each required sentence is a fixed `tts` line of its own node**, with the text built
+   by code and `on_enter_first_entry_only: true` (see "Sentences that must be said once" in patterns.md). A prompt
+   rule alone is not enough. Seen: the floor offered three times, the support team offered twice, and "the rest
+   stays overdue" dropped, while the prompt said each rule clearly. Counted attempts per item have a counter in
+   `vars` or one node per attempt.
 10. **An objection changes only the value that the customer objects to** (date or amount).
 11. **The agent proposes the values** when the brief says so, one value at a time, as a yes-or-no question.
 
