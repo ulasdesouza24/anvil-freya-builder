@@ -97,6 +97,14 @@ when the review is complete and at most 6 minutes are left.
 ## Rules
 
 - Never edit the agent on the platform by hand. Change `make.py`, run it, save.
+- The inputs can be a folder of the bank's own documents (mails, policies, memos, code lists, tables, PDF). Read
+  every file. A later document can change an earlier one: note which text wins in the rule ledger.
+- The phone agent speaks the language of the calls. When the documents are in another language than English (for
+  example Turkish), every prompt, fixed sentence, say-exactly text, `tts` line and `what_to_do_next` text that
+  shapes what the customer hears is in that language, and amounts and dates are said the way that language says
+  them. Your own notes and messages stay in English. `lib/spoken.py` reads English number and date words only:
+  in another language, let the model fill tool fields as digits and ISO dates, and say so in each field
+  description.
 - The agent must never say that a thing is recorded, scheduled or transferred when the tool call failed or was not made.
 - Leave `agent_config` out of the workflow.
 - One slot, updated in place. Never create a new workflow for each try.

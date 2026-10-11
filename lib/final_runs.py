@@ -26,7 +26,7 @@ def facts(slot, api):
     if wf.exists():
         # The export from Freya adds agent_config, which the static check flags: check the builder's own file.
         own = ROOT / "work" / slot / "workflow.json"
-        r = subprocess.run([sys.executable, str(ROOT / "lib" / "check_workflow.py"), str(own if own.exists() else wf), "--openapi", api], capture_output=True, text=True)
+        r = subprocess.run([sys.executable, str(ROOT / "lib" / "check_workflow.py"), str(own if own.exists() else wf)] + (["--openapi", api] if api else []), capture_output=True, text=True)
         m = re.search(r"(\d+) error", r.stdout + r.stderr)
         checks = int(m.group(1)) if m else 99
     rev = compare_runs.review_counts(slot) or {"open": 99}
@@ -42,7 +42,7 @@ def main():
     ap.add_argument("--prefix", default="hidden")
     ap.add_argument("--minutes", default="28")
     a = ap.parse_args()
-    api = next(f for f in a.files if f.endswith(".json"))
+    api = next((f for f in a.files if f.endswith(".json")), None)
     hh, mm = map(int, a.last_start.split(":"))
     done = []
     for i in range(1, a.runs + 1):
@@ -58,7 +58,7 @@ def main():
             subprocess.run([sys.executable, "build.py", *a.files, "--slot", slot, "--minutes", a.minutes], cwd=ROOT, stdout=f, stderr=subprocess.STDOUT)
         done.append(slot)
         print(f"{datetime.datetime.now():%H:%M} end {slot}", flush=True)
-        subprocess.run([sys.executable, str(ROOT / "lib" / "compare_runs.py"), *done, "--openapi", api], cwd=ROOT)
+        subprocess.run([sys.executable, str(ROOT / "lib" / "compare_runs.py"), *done] + (["--openapi", api] if api else []), cwd=ROOT)
     rows = [facts(s, api) for s in done]
     ok = [r for r in rows if r["export"] and r["errors"] == 0] or [r for r in rows if r["export"]]
     if not ok:

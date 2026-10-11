@@ -16,12 +16,13 @@ log is traces/<start>-<slot>.jsonl.
 
 Needs FREYA_API_KEY and FREYA_BANK_TEAM_KEY (source the kit's env.sh), and a Claude login.
 """
-import argparse, asyncio, dataclasses, json, os, pathlib, shutil, signal, sys, time
+import argparse, asyncio, dataclasses, json, os, pathlib, shutil, signal, sys, time, zipfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 # The public files of the hackathon kit, copied by setup_kit.sh. The builder works only inside its own folder.
 KIT = pathlib.Path(os.environ.get("KIT", HERE / "kit")).resolve()
 sys.path.insert(0, str(KIT))
+sys.path.insert(0, str(HERE / "lib"))
 
 
 # What the builder may test on. The expected records of a practice customer follow the rules of its own brief: Brief A
@@ -132,17 +133,41 @@ async def run_builder(args, trace):
     inp.mkdir(parents=True)
     briefs = []
     for i, b in enumerate(args.briefs, 1):
-        dst = inp / f"{i}-{pathlib.Path(b).name}"
-        shutil.copy(b, dst)
+        src = pathlib.Path(b)
+        dst = inp / f"{i}-{src.name}"
+        if src.is_dir():
+            shutil.copytree(src, dst)
+        elif src.suffix.lower() == ".zip":
+            # The bank's documents can come as a zip (the final case does).
+            dst = inp / f"{i}-{src.stem}"
+            with zipfile.ZipFile(src) as z:
+                z.extractall(dst)
+        else:
+            shutil.copy(src, dst)
         briefs.append(str(dst.relative_to(HERE)))
-    api_file = inp / "openapi.json"
-    shutil.copy(args.openapi, api_file)
-    trace.line("input", f"briefs {briefs}, tool API {api_file.relative_to(HERE)}")
+    # Word and Excel files become text next to the original: the builder's Read tool reads text and PDF.
+    import doc_text
+    converted = doc_text.convert_tree(inp)
+    files = sorted(str(p.relative_to(HERE)) for p in inp.rglob("*") if p.is_file() and not p.name.startswith(".") and "__MACOSX" not in p.parts)
+    api_file = None
+    if args.openapi:
+        api_file = inp / "openapi.json"
+        shutil.copy(args.openapi, api_file)
+    trace.line("input", f"inputs {briefs}, files {len(files)}, converted {len(converted)}, tool API {api_file.relative_to(HERE) if api_file else 'none given'}")
+    api_line = (f"Tool API file: {api_file.relative_to(HERE)}.\n" if api_file else
+                "No separate tool API file was given: find the description of the bank's services (endpoints, fields, "
+                "answers) in the documents. If the documents give no machine-readable API, write work/<slot>/openapi.json "
+                "from them first and use it for lib/tools_from_openapi.py.\n")
     prompt = (
-        f"Use the build-freya-agent skill. Build the phone agent for these brief files, in this order: {' '.join(briefs)}.\n"
-        f"Tool API file: {api_file.relative_to(HERE)}.\nSlot: {args.slot}.\n"
+        f"Use the build-freya-agent skill. Build the phone agent from these inputs, in this order: {' '.join(briefs)}.\n"
+        f"All input files (read every one; .txt files next to .docx/.xlsx files are their text): {' '.join(files)}.\n"
+        + api_line +
+        f"Slot: {args.slot}.\n"
         f"Practice customers: {PRACTICE[args.test]}.\n"
         "Write all your messages, files and comments in English: they are part of the trace that we submit.\n"
+        "The phone agent speaks the language of the calls (the language of the documents, or the one that they name). "
+        "Write its prompts, its fixed sentences, its say-exactly texts and every text that the customer hears in that "
+        "language, and copy the documents' fixed sentences word for word. Only your own notes stay in English.\n"
         f"Kit folder: {KIT.relative_to(HERE) if KIT.is_relative_to(HERE) else KIT}. Work only inside the builder folder.\nTime budget: you must be done before the Unix time {int(deadline)} "
         f"({args.minutes} minutes). Check the time with `date +%s` before you start a test."
     )
@@ -235,7 +260,7 @@ def finish(args, trace):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("files", nargs="*", help="the brief file(s), in order, then the tool API file (.json)")
+    ap.add_argument("files", nargs="*", help="the brief file(s), a folder or a zip of documents, in order, then the tool API file (.json) if there is one")
     ap.add_argument("--export-only", action="store_true", help="only publish the best tested version and export it (after an outage at the end of a run)")
     ap.add_argument("--openapi", help="the tool API file, when it is not given as the last file")
     ap.add_argument("--slot")
@@ -254,8 +279,8 @@ def main():
     args.briefs = [f for f in args.files if not f.endswith(".json")]
     jsons = [f for f in args.files if f.endswith(".json")]
     args.openapi = args.openapi or (jsons[-1] if jsons else None)
-    if not args.briefs or not args.openapi:
-        sys.exit("give the brief file(s) and the tool API file (.json)")
+    if not args.briefs:
+        sys.exit("give the brief file(s), a folder or a zip of the bank's documents, and the tool API file (.json) if there is one")
     args.slot = args.slot or pathlib.Path(args.briefs[-1]).stem
     for k in ("FREYA_API_KEY", "FREYA_BANK_TEAM_KEY"):
         if not os.environ.get(k):
