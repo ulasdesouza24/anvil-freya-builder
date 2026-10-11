@@ -39,6 +39,48 @@ def tool_names(node):
     return [t.get("function", {}).get("name") for t in node.get("tools") or []]
 
 
+def _strings(x):
+    """Every string inside a node: the code of a code step sits in a tool default."""
+    if isinstance(x, str):
+        yield x
+    elif isinstance(x, dict):
+        for v in x.values():
+            yield from _strings(v)
+    elif isinstance(x, list):
+        for v in x:
+            yield from _strings(v)
+
+
+def _clears(node, var):
+    """True when the node's code sets the variable to empty (or removes it)."""
+    pat = re.compile(r"vars\[\s*['\"]" + re.escape(var) + r"['\"]\s*\]\s*=\s*(''|\"\"|None)|vars\.pop\(\s*['\"]" + re.escape(var))
+    return any(pat.search(t) for t in _strings(node))
+
+
+def loop_routes(nodes):
+    """A route that fires when a variable is set, into a step that comes back, fires again on every later turn if
+    the step does not clear the variable. Seen: a date check ran on every turn, the turn of the confirmation went to
+    it, and the promise tool was never called (1 of 10 customers passed)."""
+    out = []
+    for key, n in nodes.items():
+        for tr in n.get("transitions") or []:
+            cond = tr.get("condition") or {}
+            conds = cond.get("conditions") or [cond]
+            tgt = nodes.get(tr.get("target_node")) or {}
+            back = key in {t.get("target_node") for t in tgt.get("transitions") or []} | {tgt.get("passthrough_default_transition")}
+            for c in conds:
+                v = c.get("variable")
+                # Is "" set or not? Not documented. So ask for both: the step clears it, and the route needs it non-empty.
+                guarded = cond.get("logic") == "and" and any(
+                    x.get("variable") == v and x.get("operator") == "not_equals" and x.get("operand") in ("", None) for x in conds)
+                if c.get("operator") == "is_set" and v and back and not (_clears(tgt, v) and guarded):
+                    out.append(f"node {key}: the route to {tr.get('target_node')!r} fires when {v!r} is set, and "
+                               f"{tr.get('target_node')!r} comes back without clearing it: the route fires on every later turn. "
+                               f"Set vars[{v!r}] = '' in that step after it reads the value, and route with logic 'and': "
+                               f"{v!r} is_set AND {v!r} not_equals ''.")
+    return out
+
+
 def check(wf, openapi=None):
     errors, warnings = [], []
     E, W = errors.append, warnings.append
@@ -49,6 +91,8 @@ def check(wf, openapi=None):
     nodes = wf.get("nodes") or {}
     glob = wf.get("global_nodes") or {}
     allk = set(nodes) | set(glob)
+    for msg in loop_routes(nodes):
+        E(msg)
     if wf.get("initial_node") not in nodes:
         E(f"initial_node {wf.get('initial_node')!r} is not a node")
     api_paths = set()

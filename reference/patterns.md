@@ -126,6 +126,11 @@ words, ask back, and talk about other things. Write these rules into the prompts
   Give `spoken_date` today: `spoken_date(text, "DMY", year, today)`. Customers often say a day with no month
   ("Monday the twenty-sixth"). Without today the code finds no date, and a date check loop asks again and again
   (seen in a test: more than 30 times).
+- A route into a check step on "<value> is set" fires again on every later turn unless the check step clears the
+  value. Seen: the date check ran on every turn, the confirmation turn went to it, the promise tool was never
+  called, and the agent said "scheduled" anyway (1 of 10 customers passed). The check step sets `vars["<value>"] =
+  ""` after it reads it, and the route has logic "and": `<value>` is_set AND `<value>` not_equals "".
+  `lib/check_workflow.py` gives an error for such a route.
 - A loop that asks for a value (a date check, a security answer) asks at most twice. After the second unclear
   reply, the agent proposes the value it understood (or the brief's default, for example the deadline) as a
   yes-or-no question. Count the tries in code (`vars`), not in the model.
