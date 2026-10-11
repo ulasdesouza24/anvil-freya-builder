@@ -20,11 +20,13 @@ def facts(slot, api):
     trace = ROOT / "submission" / f"{slot}.trace.log"
     wf = ROOT / "submission" / f"{slot}.workflow.json"
     text = trace.read_text() if trace.exists() else ""
-    errors = sum(1 for l in text.splitlines() if " error " in l)
+    errors = sum(1 for l in text.splitlines() if re.search(r"s error\s", l))
     end = re.search(r" end\s+\d+ model calls, (\d+) s", text)
     checks = 99
     if wf.exists():
-        r = subprocess.run([sys.executable, str(ROOT / "lib" / "check_workflow.py"), str(wf), "--openapi", api], capture_output=True, text=True)
+        # The export from Freya adds agent_config, which the static check flags: check the builder's own file.
+        own = ROOT / "work" / slot / "workflow.json"
+        r = subprocess.run([sys.executable, str(ROOT / "lib" / "check_workflow.py"), str(own if own.exists() else wf), "--openapi", api], capture_output=True, text=True)
         m = re.search(r"(\d+) error", r.stdout + r.stderr)
         checks = int(m.group(1)) if m else 99
     rev = compare_runs.review_counts(slot) or {"open": 99}

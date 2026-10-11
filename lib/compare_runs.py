@@ -38,11 +38,13 @@ def main():
         trace = ROOT / "submission" / f"{slot}.trace.log"
         wf = ROOT / "submission" / f"{slot}.workflow.json"
         text = trace.read_text() if trace.exists() else ""
-        errors = [l for l in text.splitlines() if " error " in l]
+        errors = [l for l in text.splitlines() if re.search(r"s error\s", l)]
         end = re.search(r" end\s+(\d+) model calls, (\d+) s", text)
         check = "no export"
         if wf.exists():
-            r = subprocess.run([sys.executable, str(ROOT / "lib" / "check_workflow.py"), str(wf)] + (["--openapi", api] if api else []),
+            # The export from Freya adds agent_config, which the static check flags: check the builder's own file.
+            own = ROOT / "work" / slot / "workflow.json"
+            r = subprocess.run([sys.executable, str(ROOT / "lib" / "check_workflow.py"), str(own if own.exists() else wf)] + (["--openapi", api] if api else []),
                                capture_output=True, text=True)
             m = re.search(r"(\d+) error", r.stdout + r.stderr)
             check = f"{m.group(1)} errors" if m else (r.stdout + r.stderr).strip()[-80:]

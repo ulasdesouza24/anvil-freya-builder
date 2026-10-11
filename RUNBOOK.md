@@ -92,8 +92,8 @@ python3 lib/final_runs.py ~/Desktop/freya-final/hidden.md ~/Desktop/freya-final/
 
 1. Check that `submission/<slot>.workflow.json` exists and that `submission/<slot>.trace.log` has a `start` and an
    `end` line, and no key value (`grep -c fak_ submission/*.log` gives 0).
-2. Run the static check: `python lib/check_workflow.py submission/<slot>.workflow.json --openapi <tool API file>`. It
-   must give 0 errors.
+2. Run the static check: `python lib/check_workflow.py work/<slot>/workflow.json --openapi <tool API file>`. It must
+   give 0 errors. (The exported file has `agent_config`, added by Freya: the check flags it there.)
 3. Talk to the agent once: `python lib/chat.py <workflow_id> --vars '<call variables of the brief>' "Hello?"`. The first
    line must follow the brief's opening rule.
 4. If the trace says "the export failed" or "the finish step failed" (Freya gave 503 or 504 at the end): wait until
