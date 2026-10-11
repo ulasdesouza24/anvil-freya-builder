@@ -9,14 +9,29 @@ URL = os.environ.get("FREYA_API_URL", "https://staging-app.freyavoice.ai")
 # Cloudflare rejects requests without a browser-like User-Agent (error 1010).
 HEADERS = {"Authorization": "Bearer " + os.environ.get("FREYA_API_KEY", ""), "Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (build-the-builder)"}
 
+# Added by the builder (2026-10-11): Freya gave 503 ("API key validation is temporarily unavailable") and 504 for
+# minutes at a time, and one such answer ended a whole build. A call is tried again for up to FREYA_RETRY_SECONDS.
+# A POST is tried again only on 502 and 503 (the request was not handled): after a 504 it may have been handled.
+RETRY_SECONDS = float(os.environ.get("FREYA_RETRY_SECONDS", "300"))
+
 def api(method, path, body=None, **params):
     """Call the API and return the `result` part of its {success, data: {message, result}} envelope."""
     q = "?" + urllib.parse.urlencode(params) if params else ""
-    req = urllib.request.Request(URL + path + q, data=json.dumps(body).encode() if body is not None else None, headers=HEADERS, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=120) as r: out = json.load(r)
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"{method} {path} -> {e.code}: {e.read().decode()[:1500]}") from None
+    t0, wait = time.time(), 5
+    while True:
+        req = urllib.request.Request(URL + path + q, data=json.dumps(body).encode() if body is not None else None, headers=HEADERS, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r: out = json.load(r)
+            break
+        except urllib.error.HTTPError as e:
+            text = e.read().decode()[:1500]
+            again = e.code in (502, 503) or (e.code in (504, 520, 522, 524) and method != "POST")
+            if not again or time.time() - t0 > RETRY_SECONDS:
+                raise RuntimeError(f"{method} {path} -> {e.code}: {text}") from None
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+            if method == "POST" or time.time() - t0 > RETRY_SECONDS:
+                raise RuntimeError(f"{method} {path} -> {e}") from None
+        time.sleep(wait); wait = min(wait * 2, 30)
     return out.get("data", {}).get("result", out) if isinstance(out, dict) else out
 
 _ws = None
