@@ -175,26 +175,6 @@ words, ask back, and talk about other things. Write these rules into the prompts
   the call never stalls.
 - Every passthrough node ends with an `always` transition.
 
-## Sentences that must be said once, or said exactly
-
-A prompt rule such as "offer the floor once" or "say that the rest stays overdue" is not reliable: in tests the
-agent offered the floor two and three times, offered the support team twice, and dropped a required note, also
-when the prompt said it clearly. Put such a sentence in code and in the graph, not in a prompt:
-
-- Give each once-only offer its own conversation node (for example `offer_floor`, `offer_support`). Its `on_enter`
-  is `{"type": "tts", "text": "{{floor_offer_text}}"}` with `on_enter_first_entry_only: true`. A code step writes
-  the text before the route goes there: the amount with `money()`, the date in words, and every note that the
-  brief requires with this offer ("The rest stays overdue."). The node's prompt holds no offer text. It says:
-  "You made the offer already. Answer a question with the fact only and wait for yes or no. Never repeat the offer
-  and never propose another amount or date." Its exits: accepted (to the read-back), refused (to what the brief
-  says comes next), a different value from the customer (to the check of that value).
-- A required sentence after an event (a confirmation text, a hardship sympathy line with the support offer) is a
-  `tts` line of the node that the event's route enters, or the post-hook's `what_to_do_next` with "say exactly".
-- An offer counted per item (persuasion attempts) gets one node per attempt, or a counter in `vars` that a code
-  step raises before the route enters the offer node again, with a different text for each attempt.
-- A question that the brief forbids ("How much can you pay?") is never needed when every offer comes from such a
-  node: the prompt of the waiting node says "never ask the customer for an amount or a date".
-
 ## Prompts
 
 - `system_prompt`: identity, language, tone, the honesty rule, the one-question-at-a-time rule, and the rules that
