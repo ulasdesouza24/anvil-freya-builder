@@ -1,5 +1,5 @@
-"""The simulation queue of the workspace. One simulation runs at a time, and a simulation cannot be stopped: a test
-that is stopped on this side keeps running on Freya until it ends, and the next test waits for it.
+"""The simulation queue of the workspace. One simulation runs at a time. A test that is stopped on this side keeps
+running on Freya until it ends, and the next test waits for it.
 
     python lib/sim_queue.py            # prints the running simulations
     python lib/sim_queue.py --wait     # waits until no simulation runs
@@ -36,6 +36,8 @@ def wait_empty(say=print, every=20, limit=1800):
             return False
         if not busy:
             return True
+        # A simulation older than 45 minutes is stuck (a ten-customer run takes 3 to 11 minutes).
+        cancel_stuck(45)
         say("waiting for " + ", ".join(f"{s.get('name')} ({s.get('status')}, started {s.get('createdAt', '')[11:19]} UTC)" for s in busy))
         time.sleep(every)
     return False
