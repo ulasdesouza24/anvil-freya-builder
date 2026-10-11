@@ -23,7 +23,7 @@ import spoken
 
 CALL_VARIABLES = {"customer_id"}
 # verify_* counts wrong answers, so it is not a plain read: it gets no retry.
-READ_HINT = re.compile(r"^(get|list|find|lookup|read)_")
+READ_HINT = re.compile(r"^(get|list|find|lookup|read)_|_(get|list|lookup|read|balance|decide|preview|search)$")
 
 PRE_HOOK = r'''
 try:
@@ -73,7 +73,11 @@ try:
     if isinstance(b, dict):
         vars["__TOOL___requested"] = "true"
         for k, v in b.items():
-            vars["__TOOL___request__" + str(k)] = str(v)
+            if isinstance(v, dict):
+                for k2, v2 in v.items():
+                    vars["__TOOL___request__" + str(k) + "__" + str(k2)] = str(v2)
+            else:
+                vars["__TOOL___request__" + str(k)] = str(v)
 except Exception:
     pass
 '''
@@ -130,9 +134,15 @@ try:
             for k, v in d.items():
                 if k == "what_to_do_next":
                     continue
-                vars["__TOOL___result__" + str(k)] = json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+                vars["__TOOL___result__" + str(k)] = json.dumps(v, ensure_ascii=False) if isinstance(v, (list, dict)) else str(v)
                 if isinstance(v, list):
                     vars["__TOOL___result__" + str(k) + "_count"] = str(len(v))
+                if isinstance(v, dict):
+                    # A nested answer (data and result objects): their fields as variables too.
+                    for k2, v2 in v.items():
+                        vars["__TOOL___result__" + str(k) + "__" + str(k2)] = json.dumps(v2, ensure_ascii=False) if isinstance(v2, (list, dict)) else str(v2)
+                        if isinstance(v2, list):
+                            vars["__TOOL___result__" + str(k) + "__" + str(k2) + "_count"] = str(len(v2))
         except Exception:
             pass
 except Exception:
@@ -140,12 +150,22 @@ except Exception:
 '''
 
 
-def tool_for(path, op, server, guide):
-    name = path.strip("/").replace("/", "_")
-    schema = (((op.get("requestBody") or {}).get("content") or {}).get("application/json") or {}).get("schema") or {}
-    props, required = schema.get("properties") or {}, schema.get("required") or []
-    body = {}
+def tool_name(path):
+    """A function name from the path: its last segment ('/voice/v1/cards.list' -> 'cards_list')."""
+    return re.sub(r"\W+", "_", path.strip("/").split("/")[-1]).strip("_") or re.sub(r"\W+", "_", path.strip("/"))
+
+
+def body_props(props, name, guide, prefix=""):
+    """Body fields as tool leaves. An object with properties stays an object, so a nested body ({"data": {...},
+    "call": {...}}) keeps its shape. guide["_bake"] = {"data.customerNo": "{{customerNumber}}", "call.lang": "tr"}
+    fixes a field to a call variable or a constant: the model never fills it."""
+    out = {}
+    bake = guide.get("_bake", {})
     for field, spec in props.items():
+        dotted = prefix + field
+        if spec.get("type") == "object" and spec.get("properties"):
+            out[field] = {"type": "object", "properties": body_props(spec["properties"], name, guide, dotted + ".")}
+            continue
         leaf = {"type": spec.get("type", "string")}
         desc = spec.get("description") or ""
         if spec.get("enum"):
@@ -155,9 +175,22 @@ def tool_for(path, op, server, guide):
             desc = (desc + " " if desc else "") + "A date as YYYY-MM-DD."
         if desc:
             leaf["description"] = desc
-        leaf["default"] = "{{" + field + "}}" if field in CALL_VARIABLES else "{{" + f"{name}__{field}" + "}}"
-        body[field] = leaf
-    write = not READ_HINT.match(name)
+        if dotted in bake:
+            leaf["default"] = bake[dotted]
+        elif field in CALL_VARIABLES:
+            leaf["default"] = "{{" + field + "}}"
+        else:
+            leaf["default"] = "{{" + f"{name}__{dotted.replace('.', '__')}" + "}}"
+        out[field] = leaf
+    return out
+
+
+def tool_for(path, op, server, guide):
+    name = tool_name(path)
+    schema = (((op.get("requestBody") or {}).get("content") or {}).get("application/json") or {}).get("schema") or {}
+    props, required = schema.get("properties") or {}, schema.get("required") or []
+    body = body_props(props, name, guide)
+    write = not READ_HINT.search(name)
     g = guide.get(name, {})
     tool = {
         "type": "function",
@@ -199,7 +232,7 @@ def tool_for(path, op, server, guide):
 
 def tools(openapi, guide=None):
     guide = guide or {}
-    server = (openapi.get("servers") or [{}])[0].get("url", "")
+    server = guide.get("_server") or (openapi.get("servers") or [{}])[0].get("url", "")
     out = {}
     for path, item in (openapi.get("paths") or {}).items():
         op = item.get("post")

@@ -50,6 +50,10 @@ when the review is complete and at most 6 minutes are left.
    - `lib/tools_from_openapi.py`: `tools(openapi, guide)` gives one api_call tool per path, with the body fields and
      enums of the API, the customer id baked, and a result hook that adds `what_to_do_next`. Write the `guide` from
      the brief: for each tool, the text for a failure, and texts for result fields (for example a hint value).
+   - Nested request bodies (for example `{"data": {...}, "call": {...}}`) keep their shape. Fix fields that the model
+     must not fill with `guide["_bake"] = {"data.customerNo": "{{<call variable>}}", "call.lang": "tr"}`, and set
+     the base address with `guide["_server"]`. A nested answer gives variables like `<tool>_result__data__<field>`.
+     The tool name is the last path segment (`/v1/cards.list` -> `cards_list`).
    - `lib/pycode.py`: `node(name, body, next_node)` gives a code node. `run(body, sample_vars)` runs the body locally.
      The body may use the helpers in `pycode.HELPERS` (parse_now, add_business_days, is_business_day,
      next_business_day, last_business_day_of_week, weekday_in_week, spoken, money, get_list, num, ...).
