@@ -62,6 +62,13 @@ words, ask back, and talk about other things. Write these rules into the prompts
   this inside a longer story; take it from any part of the message". Seen in one test run of talkative customers
   (7/10): a date of the customer's own inside a story was taken as a refusal, a hardship inside small talk was missed
   and persuasion went on, and stalling after two wrong security answers was closed as "declined".
+- A value that the customer gives together with the request ("move it to the third one", "send it to my usual
+  address") is the answer to the next question: extract it from that same message, check it in code, and go on.
+  Never ask for it again. Seen: the customer named the choice in the request, and the agent asked the same question
+  twice.
+- A request is not a yes-or-no question. When the customer asks for an action, do not ask "do you want to ...?":
+  go to the next step at once (say the current state and list the choices, or read the preview). Ask for
+  confirmation only once, right before the write, on the exact values.
 - Small talk, a story, a question back or a stall is not a refusal and not an answer. Answer it in one sentence, then
   ask the same question again. A refusal counts only when the customer says no to the question itself.
 - When the brief says that the agent proposes the values (an amount, a date), the agent never asks the customer for
