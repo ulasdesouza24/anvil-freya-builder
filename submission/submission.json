@@ -7,7 +7,7 @@
     }
   ],
   "repo": "https://github.com/ulasdesouza24/anvil-freya-builder",
-  "commit": "94af20a",
+  "commit": "da00255",
   "run_command": "python3 build.py {case_folder} {mock_url}",
   "workflow": "submission/final.workflow.json",
   "trace": "submission/final.session.jsonl",
