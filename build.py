@@ -158,6 +158,10 @@ async def run_builder(args, trace):
                 "No separate tool API file was given: find the description of the bank's services (endpoints, fields, "
                 "answers) in the documents. If the documents give no machine-readable API, write work/<slot>/openapi.json "
                 "from them first and use it for lib/tools_from_openapi.py.\n")
+    if getattr(args, "mock_url", None):
+        api_line += (f"The bank's services run at {args.mock_url}. Every tool of the phone agent calls this base URL (set it "
+                     "as the server of the tool API before lib/tools_from_openapi.py). Call it once yourself with a test "
+                     "customer of the documents before you build, to see the real answers.\n")
     prompt = (
         f"Use the build-freya-agent skill. Build the phone agent from these inputs, in this order: {' '.join(briefs)}.\n"
         f"All input files (read every one; .txt files next to .docx/.xlsx files are their text): {' '.join(files)}.\n"
@@ -171,7 +175,7 @@ async def run_builder(args, trace):
         f"Kit folder: {KIT.relative_to(HERE) if KIT.is_relative_to(HERE) else KIT}. Work only inside the builder folder.\nTime budget: you must be done before the Unix time {int(deadline)} "
         f"({args.minutes} minutes). Check the time with `date +%s` before you start a test."
     )
-    trace.line("start", f"briefs={args.briefs} openapi={args.openapi} slot={args.slot} test={args.test} model={args.model} budget={args.minutes}min")
+    trace.line("start", f"briefs={args.briefs} openapi={args.openapi} mock_url={getattr(args, 'mock_url', None)} slot={args.slot} test={args.test} model={args.model} budget={args.minutes}min")
 
     # The SDK gives one message for each content block (thinking, text, tool use) of a model call. They share a
     # message id: the trace writes one line for each model call, when the call is complete.
@@ -276,6 +280,9 @@ def main():
         code = finish(args, trace)
         trace.line("end", "export only")
         sys.exit(code)
+    # The final command is `build.py {case_folder} {mock_url}`: a URL is the base address of the bank's services.
+    args.mock_url = next((f for f in args.files if f.startswith(("http://", "https://"))), None)
+    args.files = [f for f in args.files if f != args.mock_url]
     args.briefs = [f for f in args.files if not f.endswith(".json")]
     jsons = [f for f in args.files if f.endswith(".json")]
     args.openapi = args.openapi or (jsons[-1] if jsons else None)

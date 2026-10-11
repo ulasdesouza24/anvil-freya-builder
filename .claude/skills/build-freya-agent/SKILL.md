@@ -23,6 +23,10 @@ Read `reference/patterns.md` (in this folder's parent: `../../../reference/patte
 
 The prompt gives a Unix deadline. Run `date +%s` before each long step. Keep 4 minutes at the end for the final save
 and the export. When the time is short, stop testing and save the best workflow that you have.
+When the documents give test customers and example conversations, they are your test: replay each example
+conversation in chat (`python lib/chat.py <workflow_id> --vars '<the call variables with the test customer>' "<user
+turn>" ...`), one call for each example, against the bank's services that the prompt names. Check each answer
+against what the example and the test data say, fix the workflow, save, and replay the failed examples.
 Without practice customers, do not finish early: use the time for the review (step 7b), for local runs of every
 code body with each kind of input, and for chat checks of the opening, the identity step and the early exits. Finish
 when the review is complete and at most 6 minutes are left.
