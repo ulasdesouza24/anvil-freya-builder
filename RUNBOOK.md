@@ -53,6 +53,13 @@ python3 build.py ~/Desktop/freya-final/hidden.md ~/Desktop/freya-final/hidden.op
 
 The default is `--test none` and 28 minutes.
 
+Or run all four with one command (one after the other, no start after 22:25 Istanbul, a comparison after each run
+and a proposal at the end):
+
+```bash
+python3 lib/final_runs.py ~/Desktop/freya-final/hidden.md ~/Desktop/freya-final/hidden.openapi.json 2>&1 | tee traces/final-runs.log
+```
+
 - `--test none`: the bank mock has no practice customers for the hidden brief.
 - Run one build at a time: the builds share the Claude login.
 - Watch the console. A run ends with a `created ... steps=N tools=M` line and an `export submission/<slot>.workflow.json` line.
