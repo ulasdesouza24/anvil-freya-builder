@@ -1,0 +1,15 @@
+{
+  "team": "gondolin",
+  "members": [
+    {
+      "name": "Ulaş Taylan Met",
+      "email": "umet9711@gmail.com"
+    }
+  ],
+  "repo": "https://github.com/ulasdesouza24/anvil-freya-builder",
+  "commit": "94af20a",
+  "run_command": "python3 build.py {case_folder} {mock_url}",
+  "workflow": "submission/final.workflow.json",
+  "trace": "submission/final.session.jsonl",
+  "mock_url": "https://freya-statement-mock.umet9711.workers.dev"
+}
