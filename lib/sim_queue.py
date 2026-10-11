@@ -3,6 +3,10 @@ that is stopped on this side keeps running on Freya until it ends, and the next 
 
     python lib/sim_queue.py            # prints the running simulations
     python lib/sim_queue.py --wait     # waits until no simulation runs
+    python lib/sim_queue.py --cancel-stuck [minutes]   # cancels a simulation that runs longer (default 30)
+
+Seen on 2026-10-11: one simulation stayed "running" for 9 hours and blocked every test. POST
+/api/v2/simulations/{id}/cancel ended it.
 """
 import os, pathlib, sys, time
 
@@ -37,7 +41,23 @@ def wait_empty(say=print, every=20, limit=1800):
     return False
 
 
+def cancel_stuck(minutes=30):
+    import datetime, freya
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for s in running():
+        t = datetime.datetime.fromisoformat(s["createdAt"].replace("Z", "+00:00"))
+        age = (now - t).total_seconds() / 60
+        if age > minutes:
+            r = freya.api("POST", f"/api/v2/simulations/{s['id']}/cancel", {})
+            print(f"cancelled {s.get('name')} ({age:.0f} min): {r}")
+
+
 if __name__ == "__main__":
+    if "--cancel-stuck" in sys.argv:
+        i = sys.argv.index("--cancel-stuck")
+        cancel_stuck(float(sys.argv[i + 1]) if len(sys.argv) > i + 1 else 30)
+        sys.exit(0)
     if "--wait" in sys.argv:
         sys.exit(0 if wait_empty() else 1)
     busy = running()

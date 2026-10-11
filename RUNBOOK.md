@@ -68,8 +68,8 @@ took 6 to 11 seconds and simulations hung.
 1. Check with `python lib/platform_check.py <workflow_id>`. Wait at least 2 minutes between two checks.
 2. The builder does not change a workflow on an outage test, and it publishes the best tested version. A run without
    any test publishes its first checked draft.
-3. A test that you stop on your side keeps running on Freya until it ends, and the next test waits for it. Freya
-   cannot stop a simulation. Do not stop a test unless the run is lost anyway. Before a new builder run, wait until
+3. A test that you stop on your side keeps running on Freya until it ends, and the next test waits for it. A
+   simulation that runs more than 30 minutes is stuck: `python lib/sim_queue.py --cancel-stuck 30` cancels it. Do not stop a test unless the run is lost anyway. Before a new builder run, wait until
    `python lib/sim_queue.py` says "no simulation runs".
 4. When the platform is up again and time is left, run the builder once more on the brief. Submit the run with the
    better test result, with the trace of that run.
